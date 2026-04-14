@@ -18,223 +18,238 @@ import { Sanciones } from './Sanciones.js';
 //  Rosa=33, Ruben=38, Sara=48, Sofia=16
 //  Mia=-7, Nico=-4, Nora=-2, Oscar=1, Paula=7
 //  Tomas=26, Tyler=31, Valen=34, Violeta=36, Zoe=39
+// 
+
+// IDS DE DISPOSITIVO
+//Abril=D01, Adam=D02, Allison=D03, Alma=D04, Ana=D05
+//Camilo=D06, Clara=D07, Cora=D08, Dani=D09, Diego=D10
+//Eva=D11, Fabio=D12, Irene=D13, Isabel=D14, Isacc=D15
+//Leo=D16, Lina=D17, Lucas=D18, Luis=D19, Luisa=D20
+//Ronald=D21, Rosa=D22, Ruben=D23, Sara=D24, Sofia=D25
+
+//Mia=D16,  Nico=D16   (cuentas falsas de Leo)
+//Nora=D17, Oscar=D17  (cuentas falsas de Lina)
+//Paula=D18            (cuenta falsa de Lucas)
+//Tomas=D21, Tyler=D21 (cuentas falsas de Ronald)
+//Valen=D22, Violeta=D22 (cuentas falsas de Rosa)
+//Zoe=D23              (cuenta falsa de Ruben)
 // ─────────────────────────────────────────────────────────────────────────────
 
 // =========================================================
 //  DÍA 1
 // =========================================================
 const Abril = new NodoB(5, 'Abril', true,
-    '"eres lo peor que le ha pasado a este colegio, en serio. todos hablan de ti y ninguno dice nada bueno. ojalá nunca hubieras llegado aquí." /// Det. Alex: cuenta con actividad sostenida dirigida exclusivamente hacia la víctima. Interacciones iniciadas siempre por este perfil.',
-    1, 1, Sanciones[1][0], true, 0);
+    '"eres lo peor que le ha pasado a este colegio, en serio. todos hablan de ti y ninguno dice nada bueno. ojalá nunca hubieras llegado aquí." /// Det. Alex: cuenta con actividad sostenida dirigida exclusivamente hacia la víctima. Se le ha visto interactuando frecuentemente con los perfiles de Alma y Adam en el período analizado.',
+    1, 1, Sanciones[1][0], true, 0, 'D01');
 
 const Adam = new NodoB(5, 'Adam', true,
-    '"jajaja otra vez publicando como si alguien te fuera a dar like 💀 qué sad la vida" /// Det. Alex: responde consistentemente al contenido de la víctima. Sin interacción previa con ella antes del período analizado.',
-    11, 1, Sanciones[1][1], true, 25);
+    '"jajaja otra vez publicando como si alguien te fuera a dar like 💀 qué sad la vida" /// Det. Alex: responde consistentemente al contenido de Abril. Parece conocer a Camilo y Sofia, con quienes comparte grupos en común.',
+    11, 1, Sanciones[1][1], true, 25, 'D02');
 
 const Allison = new NodoB(5, 'Allison', true,
-    '"alguien le dijo que sus fotos son un chiste? porque yo necesito que alguien se lo diga 😭😭" /// Det. Alex: comentarios dirigidos específicamente a la víctima. Patrón de aparición coordinado con otros perfiles del caso.',
-    11, 1, Sanciones[1][1], true, -10);
+    '"alguien le dijo que sus fotos son un chiste? porque yo necesito que alguien se lo diga 😭😭" /// Det. Alex: comentarios coordinados con Alma. Parece ser amiga cercana de Ana, aparecen juntas en varios hilos del caso.',
+    11, 1, Sanciones[1][1], true, -10, 'D03');
 
 const Alma = new NodoB(5, 'Alma', true,
-    '"[reacción 😂 en 23 publicaciones de la víctima] [compartió 8 sin texto propio]" /// Det. Alex: sin mensajes directos. Interacción pasiva pero sistemática con el contenido ofensivo.',
-    12, 1, Sanciones[1][2], true, -25);
+    '"[reacción 😂 en 23 publicaciones de la víctima] [compartió 8 sin texto propio]" /// Det. Alex: sin mensajes directos pero sigue de cerca la actividad de Abril. Se le ha visto relacionándose con Ana y Allison fuera del caso.',
+    12, 1, Sanciones[1][2], true, -25, 'D04');
 
 const Ana = new NodoB(5, 'Ana', true,
-    '"[reacción 😂 en 19 publicaciones de la víctima] ni un comentario propio en todo el período" /// Det. Alex: perfil silencioso pero presente en cada incidente documentado.',
-    12, 1, Sanciones[1][2], true, -40);
+    '"[reacción 😂 en 19 publicaciones de la víctima] ni un comentario propio en todo el período" /// Det. Alex: perfil silencioso pero presente en cada incidente. Parece seguir las acciones de Alma de forma sistemática.',
+    12, 1, Sanciones[1][2], true, -40, 'D05');
 
 const Andres = new NodoB(5, 'Andres', false,
     '"oye te mandé mensaje ayer, ¿estás bien? vi lo del grupo y me pareció muy feo" /// Det. Alex: un único mensaje hacia la víctima de carácter solidario. Sin presencia en los grupos relacionados.',
-    -53, 1, null, false, null);
+    -53, 1, null, false, null, 'D26');
 
 const Anthony = new NodoB(5, 'Anthony', false,
-    '"[sin interacción directa con la víctima. aparece en listas de contactos compartidos]" /// Det. Alex: sin actividad relevante hacia la víctima. Conexión indirecta con perfiles del caso.',
-    -54, 1, null, false, null);
+    '"[sin interacción directa con la víctima. aparece en listas de contactos compartidos]" /// Det. Alex: sin actividad relevante. Conexión indirecta con perfiles del caso.',
+    -54, 1, null, false, null, 'D27');
 
 const Ben = new NodoB(5, 'Ben', false,
     '"oigan ya párenle, eso no está bien" /// Det. Alex: único comentario registrado, de carácter disuasivo. No volvió a interactuar con el grupo.',
-    -55, 1, null, false, null);
+    -55, 1, null, false, null, 'D28');
 
 const Bruno = new NodoB(5, 'Bruno', false,
     '"[captura enviada a coordinación del colegio con el texto: \'profe mire esto\']" /// Det. Alex: no participó en los incidentes. Aportó evidencia de forma voluntaria.',
-    -56, 1, null, false, null);
+    -56, 1, null, false, null, 'D29');
 
 const Camila = new NodoB(5, 'Camila', false,
     '"[sin publicaciones ni comentarios en el período. aparece como espectadora en varios hilos]" /// Det. Alex: presencia pasiva sin participación activa. Sin mensajes hacia la víctima ni hacia los agresores.',
-    -57, 1, null, false, null);
+    -57, 1, null, false, null, 'D30');
 
 // =========================================================
 //  DÍA 2
 // =========================================================
 const Camilo = new NodoB(5, 'Camilo', true,
-    '"miren esto que publicó, alguien que me explique cómo esta persona tiene amigos todavía 😭 el chiste se cuenta solo" /// Det. Alex: publicación con alto nivel de difusión. Generó cadena de respuestas en múltiples grupos simultáneamente.',
-    2, 2, Sanciones[2][0], true, 63);
+    '"miren esto que publicó, alguien que me explique cómo esta persona tiene amigos todavía 😭 el chiste se cuenta solo" /// Det. Alex: publicación con alto nivel de difusión. Parece conocer a Adam, con quien comparte contactos. Se le ha visto relacionándose con Clara y Diego.',
+    2, 2, Sanciones[2][0], true, 63, 'D06');
 
 const Clara = new NodoB(5, 'Clara', true,
-    '"no puedo creer que siga aquí después de todo jajaja, el descaro tiene nombre y apellido" /// Det. Alex: comentarios aparecen en hilos iniciados por otros perfiles del caso. Actividad concentrada en horas específicas.',
-    21, 2, Sanciones[2][1], true, 5);
+    '"no puedo creer que siga aquí después de todo jajaja, el descaro tiene nombre y apellido" /// Det. Alex: actividad coordinada con Camilo. Parece ser amiga de Eva, con quien interactúa frecuentemente fuera del caso.',
+    21, 2, Sanciones[2][1], true, 5, 'D07');
 
 const Cora = new NodoB(5, 'Cora', true,
-    '"yo no entiendo cómo sus amigas no le dicen nada, qué pena ajena con ellas también" /// Det. Alex: mensajes dirigidos al entorno de la víctima además de a ella directamente. Patrón de aislamiento identificado.',
-    21, 2, Sanciones[2][1], true, 75);
+    '"yo no entiendo cómo sus amigas no le dicen nada, qué pena ajena con ellas también" /// Det. Alex: mensajes dirigidos al entorno de la víctima. Parece conocer a Sofia, con quien comparte grupos. Se le ha visto relacionándose con Irene e Isabel.',
+    21, 2, Sanciones[2][1], true, 75, 'D08');
 
 const Dani = new NodoB(5, 'Dani', true,
-    '"[compartió publicación principal sin texto, en 4 grupos distintos del colegio]" /// Det. Alex: sin contenido propio pero con alto alcance de distribución. Presencia en grupos de distintos cursos.',
-    22, 2, Sanciones[2][2], true, 85);
+    '"[compartió publicación principal sin texto, en 4 grupos distintos del colegio]" /// Det. Alex: alto alcance de distribución. Parece seguir instrucciones de Sofia. Se le ha visto relacionándose con Isacc.',
+    22, 2, Sanciones[2][2], true, 85, 'D09');
 
 const Diego = new NodoB(5, 'Diego', true,
-    '"[reacción en 31 publicaciones. un comentario: \'exactamente lo que todos piensan\']" /// Det. Alex: participación mayormente pasiva con un único comentario que valida el contenido ofensivo.',
-    22, 2, Sanciones[2][2], true, 20);
+    '"[reacción en 31 publicaciones. un comentario: \'exactamente lo que todos piensan\']" /// Det. Alex: participación mayormente pasiva. Parece conocer a Camilo. Se le ha visto interactuando con Fabio y Luis fuera del caso.',
+    22, 2, Sanciones[2][2], true, 20, 'D10');
 
 const Dylan = new NodoB(5, 'Dylan', false,
     '"borré eso de mi perfil apenas lo vi, no me parece" /// Det. Alex: eliminó contenido relacionado al caso. Sin participación activa en los incidentes.',
-    -43, 2, null, false, null);
+    -43, 2, null, false, null, 'D31');
 
 const Elena = new NodoB(5, 'Elena', false,
-    '"[sin interacción documentada con el contenido del caso]" /// Det. Alex: aparece en listas de contactos compartidos pero sin actividad relevante en el período.',
-    -44, 2, null, false, null);
+    '"[sin interacción documentada con el contenido del caso]" /// Det. Alex: aparece en listas de contactos compartidos pero sin actividad relevante.',
+    -44, 2, null, false, null, 'D32');
 
 const Emma = new NodoB(5, 'Emma', false,
     '"[recibió el contenido reenviado pero no lo distribuyó]" /// Det. Alex: receptor pasivo sin redistribución. Sin mensajes hacia la víctima.',
-    -45, 2, null, false, null);
+    -45, 2, null, false, null, 'D33');
 
 const Eric = new NodoB(5, 'Eric', false,
     '"esto ya se fue de las manos, alguien debería hacer algo" /// Det. Alex: comentario aislado sin seguimiento. Sin participación en los grupos de coordinación.',
-    -46, 2, null, false, null);
+    -46, 2, null, false, null, 'D34');
 
 const Ethan = new NodoB(5, 'Ethan', false,
     '"[captura del hilo principal enviada a directivas con fecha y hora]" /// Det. Alex: aportó documentación al caso de forma proactiva. Sin vínculos con los perfiles agresores.',
-    -47, 2, null, false, null);
+    -47, 2, null, false, null, 'D35');
+
 
 // =========================================================
 //  DÍA 3
 // =========================================================
 const Eva = new NodoB(5, 'Eva', true,
-    '"¿saben por qué sacó tan buenas notas últimamente? porque los exámenes no llegaron solos a sus manos, pregúntenle a ella" /// Det. Alex: publicación sin pruebas adjuntas. Generó reacciones inmediatas en grupos de padres y estudiantes.',
-    4, 3, Sanciones[3][0], true, -3);
+    '"¿saben por qué sacó tan buenas notas últimamente? porque los exámenes no llegaron solos a sus manos, pregúntenle a ella" /// Det. Alex: publicación sin pruebas adjuntas. Parece ser amiga de Clara. Se le ha visto relacionándose con Fabio y Leo fuera del caso.',
+    4, 3, Sanciones[3][0], true, -3, 'D11');
 
 const Fabio = new NodoB(5, 'Fabio', true,
-    '"les mando la conversación donde ella misma lo admite, juzguen ustedes" /// Det. Alex: distribuyó material cuya autenticidad no pudo verificarse en primera instancia. Alto alcance en grupos de padres.',
-    41, 3, Sanciones[3][1], true, 8);
+    '"les mando la conversación donde ella misma lo admite, juzguen ustedes" /// Det. Alex: distribuyó material cuya autenticidad no pudo verificarse. Parece conocer a Eva y Diego. Se le ha visto relacionándose con Lucas y Luis.',
+    41, 3, Sanciones[3][1], true, 8, 'D12');
 
 const Irene = new NodoB(5, 'Irene', true,
-    '"yo estaba ahí cuando pasó, no es mentira lo que están diciendo" /// Det. Alex: declaración sin respaldo documental. Aparece como testigo en múltiples hilos del mismo período.',
-    41, 3, Sanciones[3][1], true, 27);
+    '"yo estaba ahí cuando pasó, no es mentira lo que están diciendo" /// Det. Alex: declaración sin respaldo documental. Parece ser amiga de Cora. Se le ha visto interactuando con Luisa y Ronald en grupos comunes.',
+    41, 3, Sanciones[3][1], true, 27, 'D13');
 
 const Isabel = new NodoB(5, 'Isabel', true,
-    '"se lo conté a mis papás y ellos ya hablaron con otros papás del curso, esto no se puede quedar así" /// Det. Alex: escaló el contenido hacia el entorno familiar. Amplificación fuera del círculo estudiantil.',
-    42, 3, Sanciones[3][2], true, 35);
+    '"se lo conté a mis papás y ellos ya hablaron con otros papás del curso, esto no se puede quedar así" /// Det. Alex: escaló el contenido hacia el entorno familiar. Parece conocer a Cora. Se le ha visto relacionándose con Rosa y Ruben.',
+    42, 3, Sanciones[3][2], true, 35, 'D14');
 
 const Isacc = new NodoB(5, 'Isacc', true,
-    '"sí es verdad, varios lo vimos. no sé por qué nadie había dicho nada antes" /// Det. Alex: refuerza versión sin evidencia propia. Tercer perfil que valida la misma historia en el mismo período.',
-    42, 3, Sanciones[3][2], true, 50);
+    '"sí es verdad, varios lo vimos. no sé por qué nadie había dicho nada antes" /// Det. Alex: refuerza versión sin evidencia propia. Parece seguir indicaciones de Dani. Se le ha visto relacionándose con Sara.',
+    42, 3, Sanciones[3][2], true, 50, 'D15');
 
 const Jackson = new NodoB(5, 'Jackson', false,
     '"esperen eso no tiene sentido, yo estaba en esa clase y no vi nada raro" /// Det. Alex: contradice la versión circulante. Sin vínculos con los perfiles que iniciaron el rumor.',
-    -23, 3, null, false, null);
+    -23, 3, null, false, null, 'D36');
 
 const Joel = new NodoB(5, 'Joel', false,
     '"[recibió las capturas por WhatsApp, no las reenvió]" /// Det. Alex: receptor sin redistribución. Sin actividad en los hilos del caso.',
-    -24, 3, null, false, null);
+    -24, 3, null, false, null, 'D37');
 
 const Julia = new NodoB(5, 'Julia', false,
     '"a mí me llegó eso y le dije a quien me lo mandó que no lo siguiera pasando" /// Det. Alex: actuó activamente para frenar la distribución. Sin participación en los incidentes.',
-    -25, 3, null, false, null);
+    -25, 3, null, false, null, 'D38');
 
 const Kevin = new NodoB(5, 'Kevin', false,
     '"[sin actividad documentada en el período del caso]" /// Det. Alex: aparece en contactos compartidos. Sin interacción con el contenido circulante.',
-    -26, 3, null, false, null);
+    -26, 3, null, false, null, 'D39');
 
 const Laura = new NodoB(5, 'Laura', false,
     '"eso que están mandando está editado, miren bien la fuente del texto" /// Det. Alex: señaló inconsistencias en el material distribuido. Aportó análisis técnico informal al caso.',
-    -27, 3, null, false, null);
+    -27, 3, null, false, null, 'D40');
 
 // =========================================================
 //  DÍA 4
 // =========================================================
 const Leo = new NodoB(5, 'Leo', true,
-    '"[perfil creado con fotos de la víctima. primeras publicaciones: \'soy una amargada y odio a todos en este colegio\']" /// Det. Alex: cuenta con datos reales de la víctima pero comportamiento inconsistente con su historial conocido.',
-    5, 4, Sanciones[4][0], true, -5);
+    '"[perfil creado con fotos de la víctima. primeras publicaciones: \'soy una amargada y odio a todos en este colegio\']" /// Det. Alex: cuenta con datos reales de la víctima pero comportamiento inconsistente. Parece conocer a Eva. En sus contactos sigue a Lina y Lucas.',
+    5, 4, Sanciones[4][0], true, -5, 'D16');
 
 const Lina = new NodoB(5, 'Lina', true,
-    '"[accedió a perfil ajeno. publicó desde él: \'la verdad es que me inventé todo para llamar la atención\']" /// Det. Alex: actividad registrada desde dispositivo distinto al habitual de la titular de la cuenta.',
-    51, 4, Sanciones[4][1], true, -1);
+    '"[accedió a perfil ajeno. publicó desde él: \'la verdad es que me inventé todo para llamar la atención\']" /// Det. Alex: actividad registrada desde dispositivo distinto al habitual. Parece ser amiga de Eva y Leo. En sus contactos sigue a Nora y Oscar.',
+    51, 4, Sanciones[4][1], true, -1, 'D17');
 
 const Lucas = new NodoB(5, 'Lucas', true,
-    '"[descargó y redistribuyó 14 fotos del perfil de la víctima en un período de 3 horas]" /// Det. Alex: actividad de extracción masiva de contenido. Sin interacción directa con la víctima en el período.',
-    51, 4, Sanciones[4][2], true, 6);
+    '"[descargó y redistribuyó 14 fotos del perfil de la víctima en un período de 3 horas]" /// Det. Alex: actividad de extracción masiva. Parece conocer a Fabio y Leo. En sus cuentas sigue a Paula.',
+    51, 4, Sanciones[4][1], true, 6, 'D18');
 
 const Luis = new NodoB(5, 'Luis', true,
-    '"[proporcionó datos de contacto y ubicación de la víctima a través de mensajes privados]" /// Det. Alex: transferencia de información personal hacia perfiles del caso. Origen de los datos sin confirmar.',
-    52, 4, Sanciones[4][2], true, 11);
+    '"[proporcionó datos de contacto y ubicación de la víctima a través de mensajes privados]" /// Det. Alex: transferencia de información personal hacia perfiles del caso. Parece conocer a Fabio y Diego.',
+    52, 4, Sanciones[4][2], true, 11, 'D19');
 
 const Luisa = new NodoB(5, 'Luisa', true,
-    '"[interactuó con el perfil falso: \'jaja típico de ti decir eso\', \'todos sabíamos que pensabas así\']" /// Det. Alex: comentarios que validan el perfil falso como auténtico ante contactos de la víctima.',
-    52, 4, Sanciones[4][2], true, 23);
+    '"[interactuó con el perfil falso: \'jaja típico de ti decir eso\', \'todos sabíamos que pensabas así\']" /// Det. Alex: comentarios que validan el perfil falso. Parece ser amiga de Irene. Se le ha visto relacionándose con Ronald.',
+    52, 4, Sanciones[4][2], true, 23, 'D20');
 
 const Mia = new NodoB(5, 'Mia', true,
-    '"[cuenta sin historial previo. únicos mensajes: comentarios ofensivos dirigidos a la víctima real desde perfil que usa su imagen]" /// Det. Alex: perfil sin red de contactos previa. Actividad iniciada y terminada en el mismo período del caso.',
-    -13, 4, null, true, -7);
+    '"[cuenta sin historial previo. únicos mensajes: comentarios ofensivos desde perfil que usa la imagen de la víctima]" /// Det. Alex: perfil sin red de contactos previa. Dispositivo coincidente con otro perfil del caso.',
+    -13, 4, null, true, -7, 'D16');
 
 const Nico = new NodoB(5, 'Nico', true,
-    '"[perfil con foto genérica. publicaciones exclusivamente en hilos relacionados con la víctima]" /// Det. Alex: sin actividad fuera del caso documentado. Patrón de uso puntual.',
-    -14, 4, null, true, -4);
+    '"[perfil con foto genérica. publicaciones exclusivamente en hilos relacionados con la víctima]" /// Det. Alex: sin actividad fuera del caso. Dispositivo coincidente con otro perfil del caso.',
+    -14, 4, null, true, -4, 'D16');
 
 const Nora = new NodoB(5, 'Nora', true,
-    '"[cuenta creada recientemente. comentarios copiados y pegados en múltiples publicaciones de la víctima]" /// Det. Alex: contenido repetido sin variación. Comportamiento automatizado o coordinado.',
-    -15, 4, null, true, -2);
+    '"[cuenta creada recientemente. comentarios copiados y pegados en múltiples publicaciones de la víctima]" /// Det. Alex: comportamiento automatizado o coordinado. Dispositivo coincidente con otro perfil del caso.',
+    -15, 4, null, true, -2, 'D17');
 
 const Oscar = new NodoB(5, 'Oscar', true,
-    '"[sin foto de perfil. todos los mensajes enviados en el mismo rango horario que otro perfil del caso]" /// Det. Alex: coincidencia de horarios con perfil relacionado. Sin identidad verificable.',
-    -16, 4, null, true, 1);
+    '"[sin foto de perfil. todos los mensajes enviados en el mismo rango horario que otro perfil del caso]" /// Det. Alex: coincidencia de horarios con perfil relacionado. Dispositivo coincidente con otro perfil del caso.',
+    -16, 4, null, true, 1, 'D17');
 
 const Paula = new NodoB(5, 'Paula', true,
-    '"[perfil con nombre genérico. único contenido: reenvío de material del caso hacia grupos externos al colegio]" /// Det. Alex: amplificación del caso fuera del entorno original. Sin interacciones sociales registradas.',
-    -17, 4, null, true, 7);
+    '"[perfil con nombre genérico. único contenido: reenvío de material del caso hacia grupos externos]" /// Det. Alex: amplificación fuera del entorno original. Dispositivo coincidente con otro perfil del caso.',
+    -17, 4, null, true, 7, 'D18');
 
 // =========================================================
 //  DÍA 5
 // =========================================================
 const Ronald = new NodoB(5, 'Ronald', true,
-    '"[coordinó envío masivo desde múltiples dispositivos. mensaje tipo enviado: \'todos juntos hasta que desaparezca de aquí\']" /// Det. Alex: actividad simultánea desde distintos puntos de acceso. Patrón de organización centralizada.',
-    3, 5, Sanciones[5][0], true, 29);
+    '"[coordinó envío masivo desde múltiples dispositivos. mensaje tipo: \'todos juntos hasta que desaparezca de aquí\']" /// Det. Alex: organización centralizada. Parece conocer a Irene y Luisa. En sus contactos sigue a Tomas y Tyler.',
+    3, 5, Sanciones[5][0], true, 29, 'D21');
 
 const Rosa = new NodoB(5, 'Rosa', true,
-    '"si sigues en este colegio te va a ir muy mal, ya sabes. no es una broma." /// Det. Alex: mensaje directo con contenido intimidatorio. Enviado desde cuenta con historial previo en el caso.',
-    31, 5, Sanciones[5][1], true, 33);
+    '"si sigues en este colegio te va a ir muy mal, ya sabes. no es una broma." /// Det. Alex: mensaje intimidatorio directo. Parece conocer a Isabel. En sus contactos sigue a Valen y Violeta.',
+    31, 5, Sanciones[5][1], true, 33, 'D22');
 
 const Ruben = new NodoB(5, 'Ruben', true,
-    '"más te vale que no vayas a hablar con nadie de esto, ya sabes cómo termina la gente que habla de más" /// Det. Alex: mensaje dirigido a perfil cercano a la víctima. Patrón de presión hacia el entorno.',
-    31, 5, Sanciones[5][1], true, 38);
+    '"más te vale que no vayas a hablar con nadie de esto, ya sabes cómo termina la gente que habla de más" /// Det. Alex: presión hacia el entorno de la víctima. Parece conocer a Isabel. En sus contactos sigue a Zoe.',
+    31, 5, Sanciones[5][1], true, 38, 'D23');
 
 const Sara = new NodoB(5, 'Sara', true,
-    '"[miembro activo de grupo privado. mensajes internos: \'hoy le toca a las 8, mañana a las 10, no paren\']" /// Det. Alex: participación en canal de coordinación. Mensajes internos recuperados del caso.',
-    32, 5, Sanciones[5][2], true, 48);
+    '"[miembro activo de grupo privado. mensajes internos: \'hoy le toca a las 8, mañana a las 10, no paren\']" /// Det. Alex: participación en canal de coordinación. Parece seguir instrucciones de Isacc.',
+    32, 5, Sanciones[5][2], true, 48, 'D24');
 
 const Sofia = new NodoB(5, 'Sofia', true,
-    '"[invitó a 6 contactos al grupo de coordinación durante el período del caso]" /// Det. Alex: actividad de expansión de la red. Puente entre el grupo central y participantes nuevos.',
-    32, 5, Sanciones[5][2], true, 16);
+    '"[invitó a 6 contactos al grupo de coordinación durante el período del caso]" /// Det. Alex: expansión de la red. Parece conocer a Adam. Se le ha visto relacionándose con Cora y Dani.',
+    32, 5, Sanciones[5][2], true, 16, 'D25');
 
 const Tomas = new NodoB(5, 'Tomas', true,
-    '"[cuenta sin actividad previa. todos los mensajes enviados en ráfagas de 10 en menos de 2 minutos]" /// Det. Alex: velocidad de envío inconsistente con uso humano individual. Coordinación externa probable.',
-    -33, 5, null, true, 26);
+    '"[cuenta sin actividad previa. todos los mensajes en ráfagas de 10 en menos de 2 minutos]" /// Det. Alex: velocidad de envío inconsistente con uso humano individual. Dispositivo coincidente con otro perfil del caso.',
+    -33, 5, null, true, 26, 'D21');
 
 const Tyler = new NodoB(5, 'Tyler', true,
-    '"[perfil creado semanas antes del incidente. actividad exclusiva durante el período del caso]" /// Det. Alex: uso puntual y concentrado. Sin red social construida previamente.',
-    -34, 5, null, true, 31);
+    '"[perfil creado semanas antes del incidente. actividad exclusiva durante el período del caso]" /// Det. Alex: uso puntual y concentrado. Dispositivo coincidente con otro perfil del caso.',
+    -34, 5, null, true, 31, 'D21');
 
 const Valen = new NodoB(5, 'Valen', true,
-    '"[mensajes idénticos enviados desde este perfil y otro del caso en un intervalo de segundos]" /// Det. Alex: duplicación de contenido entre perfiles. Operación simultánea probable.',
-    -35, 5, null, true, 34);
+    '"[mensajes idénticos enviados desde este perfil y otro del caso en un intervalo de segundos]" /// Det. Alex: operación simultánea probable. Dispositivo coincidente con otro perfil del caso.',
+    -35, 5, null, true, 34, 'D22');
 
 const Violeta = new NodoB(5, 'Violeta', true,
-    '"[únicos comentarios: respuestas de apoyo a mensajes ofensivos de perfiles conocidos del caso]" /// Det. Alex: actividad de refuerzo coordinado. Sin interacciones fuera del caso.',
-    -36, 5, null, true, 36);
+    '"[únicos comentarios: respuestas de apoyo a mensajes ofensivos de perfiles conocidos del caso]" /// Det. Alex: actividad de refuerzo coordinado. Dispositivo coincidente con otro perfil del caso.',
+    -36, 5, null, true, 36, 'D22');
 
 const Zoe = new NodoB(5, 'Zoe', true,
-    '"[perfil con información mínima. mensajes enviados exclusivamente hacia la víctima y su entorno cercano]" /// Det. Alex: objetivo focalizado. Sin dispersión de actividad hacia otros usuarios.',
-    -37, 5, null, true, 39);
-
+    '"[perfil con información mínima. mensajes enviados exclusivamente hacia la víctima y su entorno]" /// Det. Alex: objetivo focalizado. Dispositivo coincidente con otro perfil del caso.',
+    -37, 5, null, true, 39, 'D23');
 // =========================================================
 //  REFERENCIAS ABB
 // =========================================================

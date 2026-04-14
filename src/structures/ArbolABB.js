@@ -51,11 +51,30 @@ export class ArbolABB {
         let correctos = 0;
         for (const nodo of nodos) {
             const padreOk = nodo.padreJugador?.ordenAbb === nodo.padreReal?.ordenAbb;
-            const izqOk   = nodo.izqJugador?.ordenAbb   === nodo.izqReal?.ordenAbb;
-            const derOk   = nodo.derJugador?.ordenAbb    === nodo.derReal?.ordenAbb;
+            const izqOk = nodo.izqJugador?.ordenAbb === nodo.izqReal?.ordenAbb;
+            const derOk = nodo.derJugador?.ordenAbb === nodo.derReal?.ordenAbb;
             if (padreOk && izqOk && derOk) correctos++;
         }
 
         return Math.round((correctos / nodos.length) * 100);
+    }
+    
+    calcularPrecisionABB(vectorNodos) {
+        if (!vectorNodos || vectorNodos.length === 0) return 0;
+
+        const nodos = vectorNodos.filter(n => n.apareceEnAbb);
+        if (nodos.length === 0) return 0;
+
+        let puntosCorrectos = 0;
+        const puntosPosibles = nodos.length * 3;
+
+        for (const nodo of nodos) {
+            if (nodo.padreJugador?.ordenAbb === nodo.padreReal?.ordenAbb) puntosCorrectos++;
+            if (nodo.izqJugador?.ordenAbb === nodo.izqReal?.ordenAbb) puntosCorrectos++;
+            if (nodo.derJugador?.ordenAbb === nodo.derReal?.ordenAbb) puntosCorrectos++;
+        }
+
+        const precisionArbolAbbJugador = Math.round((puntosCorrectos / puntosPosibles) * 100);
+        return precisionArbolAbbJugador;
     }
 }
