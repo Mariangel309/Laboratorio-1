@@ -2,6 +2,8 @@ import { Start } from './Scenes/Start.js';
 import { EscenaHistoria } from './Scenes/EscenaHistoria.js';
 import { Instrucciones } from './Scenes/Instrucciones.js';
 import { Ventana1 } from './Scenes/Ventana1.js';
+import { PuntajeDia } from './Scenes/PuntajeDia.js';
+import { GameOver } from './Scenes/GameOver.js';
 
 const config = {
     type: Phaser.AUTO,
@@ -17,7 +19,9 @@ const config = {
         Start,
         EscenaHistoria,
         Instrucciones,
-        Ventana1
+        Ventana1,
+        PuntajeDia,
+        GameOver
     ]
 };
 

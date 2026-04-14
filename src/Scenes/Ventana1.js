@@ -19,6 +19,9 @@ export class Ventana1 extends Phaser.Scene {
         this.estadoBuscadorPorDia = data.estadoBuscadorPorDia || {};
         this.sancionesAsignadas = data.sancionesAsignadas || {};
 
+        this.vidasDiaActual = typeof data.vidasDiaActual === 'number' ? data.vidasDiaActual : 4;
+        this.penalizacionDia = typeof data.penalizacionDia === 'number' ? data.penalizacionDia : 0;
+
         if (this.diaActual >= 7) {
             this.diaActual = 7;
             this.modoSoloFondo = true;
@@ -175,6 +178,7 @@ export class Ventana1 extends Phaser.Scene {
         this.crearModalPersonalizado();
         this.crearControlVolumen();
         this.actualizarEstadoDias();
+        this.crearIndicadorVidas();
 
         this.personajesDia = vectorDelDia(this.diaActual) || [];
         if (this.personajesDia.length > 0) {
@@ -596,7 +600,12 @@ export class Ventana1 extends Phaser.Scene {
 
             if (!resultado.todoCorrecto) {
                 this.reproducirClick();
-                this._mostrarResumenValidacionDia(resultado);
+                this.registrarErrorDia();
+
+                if (this.vidasDiaActual > 0) {
+                    this._mostrarResumenValidacionDia(resultado);
+                }
+
                 return;
             }
 
@@ -699,6 +708,139 @@ export class Ventana1 extends Phaser.Scene {
                 dia.sprite.setAlpha(0.35);
                 dia.zone.disableInteractive();
             }
+        });
+    }
+    crearIndicadorVidas() {
+        this.panelVidas = this.add.rectangle(860, 42, 270, 54, 0x091427, 0.92);
+        this.panelVidas.setDepth(60);
+        this.panelVidas.setStrokeStyle(2, 0x78a7ff, 1);
+
+        this.vidasLabel = this.add.text(785, 42, 'VIDAS', {
+            fontFamily: '"VT323", monospace',
+            fontSize: '24px',
+            color: '#ffffff',
+            stroke: '#09111f',
+            strokeThickness: 3
+        });
+        this.vidasLabel.setOrigin(0.5);
+        this.vidasLabel.setDepth(61);
+
+        this.barrasVidas = [];
+
+        const startX = 850;
+        const startY = 42;
+        const anchoSegmento = 28;
+        const altoSegmento = 22;
+        const separacion = 34;
+
+        for (let i = 0; i < 4; i++) {
+            const fondo = this.add.rectangle(
+                startX + i * separacion,
+                startY,
+                anchoSegmento,
+                altoSegmento,
+                0x1a2945,
+                1
+            );
+            fondo.setDepth(61);
+            fondo.setStrokeStyle(1, 0xa9c8ff, 0.9);
+
+            const barra = this.add.rectangle(
+                startX + i * separacion,
+                startY,
+                anchoSegmento - 4,
+                altoSegmento - 4,
+                0x8bff9a,
+                1
+            );
+            barra.setDepth(62);
+
+            this.barrasVidas.push({ fondo, barra });
+        }
+
+        this.actualizarIndicadorVidas(false);
+    }
+
+    actualizarIndicadorVidas(animarPerdida = false) {
+        if (!this.barrasVidas) return;
+
+        this.barrasVidas.forEach((item, index) => {
+            const activa = index < this.vidasDiaActual;
+
+            if (activa) {
+                item.barra.setVisible(true);
+                item.barra.setAlpha(1);
+                item.barra.setScale(1);
+                item.barra.setFillStyle(0x8bff9a, 1);
+            } else {
+                item.barra.setVisible(false);
+            }
+        });
+
+        if (animarPerdida) {
+            const indicePerdido = this.vidasDiaActual;
+            const item = this.barrasVidas[indicePerdido];
+
+            if (item) {
+                item.barra.setVisible(true);
+                item.barra.setFillStyle(0xff6363, 1);
+                item.barra.setAlpha(1);
+                item.barra.setScale(1);
+
+                this.tweens.add({
+                    targets: item.barra,
+                    scaleX: 1.35,
+                    scaleY: 1.35,
+                    alpha: 0,
+                    angle: 8,
+                    duration: 260,
+                    ease: 'Back.easeIn',
+                    onComplete: () => {
+                        item.barra.setVisible(false);
+                        item.barra.setAlpha(1);
+                        item.barra.setScale(1);
+                        item.barra.angle = 0;
+                    }
+                });
+            }
+
+            if (this.panelVidas) {
+                this.tweens.add({
+                    targets: this.panelVidas,
+                    alpha: 0.65,
+                    duration: 90,
+                    yoyo: true,
+                    repeat: 1
+                });
+            }
+        }
+    }
+    registrarErrorDia() {
+        if (this.vidasDiaActual > 0) {
+            this.vidasDiaActual -= 1;
+        }
+
+        this.penalizacionDia += 10;
+        this.actualizarIndicadorVidas(true);
+
+        if (this.vidasDiaActual <= 0) {
+            this.time.delayedCall(420, () => {
+                this.irAGameOver();
+            });
+        }
+    }
+    irAGameOver() {
+        if (this.yaTransicionando) return;
+        this.yaTransicionando = true;
+
+        this.desactivarInteractivosPrincipales();
+
+        this.fadeOutMusica(() => {
+            this.cameras.main.fadeOut(450, 0, 0, 0);
+
+            this.time.delayedCall(450, () => {
+                this.scene.start('GameOver');
+            });
         });
     }
 
@@ -819,6 +961,81 @@ export class Ventana1 extends Phaser.Scene {
         this.sliderFill.displayWidth = Math.max(4, this.sliderWidth * this.volumenActual);
         this.sliderGlow.displayWidth = Math.max(4, this.sliderWidth * this.volumenActual);
         this.sliderKnob.x = izquierda + this.sliderWidth * this.volumenActual;
+    }
+
+    _calcularPuntajeDia() {
+        const personajes = this.personajesDia || [];
+
+        let clasificacionesCorrectas = 0;
+        let sancionesCorrectas = 0;
+
+        personajes.forEach((pj) => {
+            const decision = this._obtenerDecisionDiaActual(pj);
+
+            const clasificacionBien =
+                (pj.delito === true && decision === 'delito') ||
+                (pj.delito === false && decision === 'libre');
+
+            if (clasificacionBien) {
+                clasificacionesCorrectas += 1;
+            }
+
+            if (pj.delito === true && pj.sancion && pj.sancion !== 'NO TIENE') {
+                const sancionAsignada = this._obtenerSancionAsignada(pj);
+
+                if (
+                    sancionAsignada &&
+                    sancionAsignada.nombre === pj.sancion.nombre
+                ) {
+                    sancionesCorrectas += 1;
+                }
+            }
+        });
+
+        const puntosClasificacion = clasificacionesCorrectas * 10;
+        const puntosSanciones = sancionesCorrectas * 10;
+        const totalBruto = puntosClasificacion + puntosSanciones;
+        const penalizacion = this.penalizacionDia || 0;
+        const totalFinal = Math.max(0, totalBruto - penalizacion);
+
+        return {
+            dia: this.diaActual,
+            clasificacionesCorrectas,
+            puntosClasificacion,
+            sancionesCorrectas,
+            puntosSanciones,
+            totalBruto,
+            penalizacion,
+            vidasRestantes: this.vidasDiaActual,
+            total: totalFinal
+        };
+    }
+
+    _obtenerEstadoSiguienteDespuesDelPuntaje() {
+        if (this.diaActual < 6) {
+            return {
+                diaActual: this.diaActual + 1,
+                transicionEntrada: true,
+                volumenActual: this.volumenActual,
+                delitosEncontrados: this.delitosEncontrados,
+                estadoBuscadorPorDia: this.estadoBuscadorPorDia,
+                sancionesAsignadas: this.sancionesAsignadas,
+                vidasDiaActual: 4,
+                penalizacionDia: 0
+            };
+        }
+
+        return {
+            diaActual: 7,
+            modoSoloFondo: true,
+            transicionEntrada: true,
+            volumenActual: this.volumenActual,
+            delitosEncontrados: this.delitosEncontrados,
+            estadoBuscadorPorDia: this.estadoBuscadorPorDia,
+            sancionesAsignadas: this.sancionesAsignadas,
+            vidasDiaActual: 4,
+            penalizacionDia: 0
+        };
     }
 
     // ─────────────────────────────────────────────────────────
@@ -954,21 +1171,65 @@ export class Ventana1 extends Phaser.Scene {
         const container = this.scrollState.container;
         const decision = this._obtenerDecisionDiaActual(pj);
 
-        const textStyle = {
+        // Separar texto principal y observación del detective
+        const partes = (pj.textoCaso || '').split('///');
+        const textoPrincipal = (partes[0] || '').trim();
+        const textoDetAlex = partes.length > 1 ? ('Det. Alex: ' + partes.slice(1).join('///').replace(/^Det\.\s*Alex:\s*/i, '').trim()) : '';
+
+        const estiloNombre = {
             fontFamily: '"VT323", monospace',
-            fontSize: '21px',
-            color: '#d7e4ff',
-            wordWrap: { width: 500 },
+            fontSize: '32px',
+            color: '#ffffff'
+        };
+
+        const estiloPrincipal = {
+            fontFamily: '"VT323", monospace',
+            fontSize: '20px',
+            color: '#e4eeff',
+            wordWrap: { width: 520, useAdvancedWrap: true },
             lineSpacing: 5
         };
 
-        const medidor = this.add.text(-3000, -3000, pj.textoCaso, textStyle);
-        const caseHeight = medidor.height;
-        medidor.destroy();
+        const estiloDetAlex = {
+            fontFamily: '"VT323", monospace',
+            fontSize: '17px',
+            color: '#9fb9e8',
+            wordWrap: { width: 520, useAdvancedWrap: true },
+            lineSpacing: 4,
+            fontStyle: 'italic'
+        };
 
-        const cardHeight = Math.max(130, caseHeight + 48);
+        // Medición real
+        const medidorNombre = this.add.text(-3000, -3000, pj.nombre.trim(), estiloNombre);
+        const medidorPrincipal = this.add.text(-3000, -3000, textoPrincipal, estiloPrincipal);
+        const medidorDetAlex = this.add.text(-3000, -3000, textoDetAlex, estiloDetAlex);
+
+        const nombreHeight = medidorNombre.height;
+        const principalHeight = medidorPrincipal.height;
+        const detAlexHeight = textoDetAlex ? medidorDetAlex.height : 0;
+
+        medidorNombre.destroy();
+        medidorPrincipal.destroy();
+        medidorDetAlex.destroy();
+
+        // Layout vertical
+        const yNombre = topY + 16;
+        const yPrincipal = yNombre + nombreHeight + 10;
+        const yDetAlex = yPrincipal + principalHeight + 10;
+
+        const textoBottom = yDetAlex + detAlexHeight;
+        const avatarBottom = topY + 24 + 82;
+
+        const contenidoBottom = Math.max(
+            textoBottom + 18,
+            avatarBottom + 18,
+            topY + 132
+        );
+
+        const cardHeight = contenidoBottom - topY;
         const centerY = topY + cardHeight / 2;
 
+        // Fondo tarjeta
         const filaBg = this.add.rectangle(600, centerY, 960, cardHeight, 0x0f1633, 0.72);
         filaBg.setStrokeStyle(2, 0x264c8a, 1);
 
@@ -977,6 +1238,7 @@ export class Ventana1 extends Phaser.Scene {
 
         container.add([filaBg, marco]);
 
+        // Avatar
         const key = this._obtenerClaveAvatar(pj);
         if (this.textures.exists(key)) {
             const foto = this.add.image(158, centerY, key).setDisplaySize(74, 74);
@@ -991,18 +1253,28 @@ export class Ventana1 extends Phaser.Scene {
             container.add([placeholderBg, inicialTxt]);
         }
 
-        const nomTxt = this.add.text(225, topY + 14, pj.nombre.trim(), {
-            fontFamily: '"VT323", monospace',
-            fontSize: '32px',
-            color: '#ffffff'
-        });
+        // Textos
+        const nomTxt = this.add.text(225, yNombre, pj.nombre.trim(), estiloNombre);
+        const principalTxt = this.add.text(225, yPrincipal, textoPrincipal, estiloPrincipal);
 
-        const casoTxt = this.add.text(225, topY + 54, pj.textoCaso, textStyle);
-        container.add([nomTxt, casoTxt]);
+        container.add([nomTxt, principalTxt]);
 
+        if (textoDetAlex) {
+            const detAlexTxt = this.add.text(225, yDetAlex, textoDetAlex, estiloDetAlex);
+            container.add(detAlexTxt);
+        }
+
+        // Botones
         const btnY = centerY - 12;
 
-        const btnDelBg = this.add.rectangle(855, btnY, 130, 46, decision === 'delito' ? 0x5b9947 : 0x3f6e34, 1);
+        const btnDelBg = this.add.rectangle(
+            855,
+            btnY,
+            130,
+            46,
+            decision === 'delito' ? 0x5b9947 : 0x3f6e34,
+            1
+        );
         btnDelBg.setStrokeStyle(2, 0xa4dd8f, 1);
 
         const btnDelTxt = this.add.text(855, btnY, 'DELITO', {
@@ -1011,7 +1283,14 @@ export class Ventana1 extends Phaser.Scene {
             color: '#f4fff0'
         }).setOrigin(0.5);
 
-        const btnLibBg = this.add.rectangle(1010, btnY, 130, 46, decision === 'libre' ? 0x6b67bc : 0x474276, 1);
+        const btnLibBg = this.add.rectangle(
+            1010,
+            btnY,
+            130,
+            46,
+            decision === 'libre' ? 0x6b67bc : 0x474276,
+            1
+        );
         btnLibBg.setStrokeStyle(2, 0xbab8ff, 1);
 
         const btnLibTxt = this.add.text(1010, btnY, 'LIBRE', {
@@ -1022,7 +1301,7 @@ export class Ventana1 extends Phaser.Scene {
 
         const statusTxt = this.add.text(
             932,
-            centerY + 34,
+            btnY + 50,
             decision === 'delito'
                 ? 'Marcado como delito'
                 : decision === 'libre'
@@ -1031,9 +1310,11 @@ export class Ventana1 extends Phaser.Scene {
             {
                 fontFamily: '"VT323", monospace',
                 fontSize: '18px',
-                color: decision ? '#dfeaff' : '#a9badc'
+                color: decision ? '#dfeaff' : '#a9badc',
+                align: 'center',
+                wordWrap: { width: 230, useAdvancedWrap: true }
             }
-        ).setOrigin(0.5);
+        ).setOrigin(0.5, 0.5);
 
         const zDel = this.add.zone(855, btnY, 130, 46).setInteractive({ cursor: 'pointer' });
         zDel.on('pointerover', () => btnDelBg.setFillStyle(0x6caf55, 1));
@@ -1056,12 +1337,12 @@ export class Ventana1 extends Phaser.Scene {
         container.add([
             btnDelBg, btnDelTxt,
             btnLibBg, btnLibTxt,
-            statusTxt, zDel, zLib
+            statusTxt,
+            zDel, zLib
         ]);
 
-        return topY + cardHeight + 16;
+        return topY + cardHeight + 18;
     }
-
     abrirModalDia(numeroDia) {
         if (this.modalAbierto) return;
 
@@ -1282,28 +1563,17 @@ export class Ventana1 extends Phaser.Scene {
             this.cerrarModalZone.disableInteractive();
         }
 
+        const puntajeDia = this._calcularPuntajeDia();
+        const siguienteEstado = this._obtenerEstadoSiguienteDespuesDelPuntaje();
+
         this.fadeOutMusica(() => {
-            this.reproducirTransicionSalida(() => {
-                if (this.diaActual < 6) {
-                    this.scene.restart({
-                        diaActual: this.diaActual + 1,
-                        transicionEntrada: true,
-                        volumenActual: this.volumenActual,
-                        delitosEncontrados: this.delitosEncontrados,
-                        estadoBuscadorPorDia: this.estadoBuscadorPorDia,
-                        sancionesAsignadas: this.sancionesAsignadas
-                    });
-                } else {
-                    this.scene.restart({
-                        diaActual: 7,
-                        modoSoloFondo: true,
-                        transicionEntrada: true,
-                        volumenActual: this.volumenActual,
-                        delitosEncontrados: this.delitosEncontrados,
-                        estadoBuscadorPorDia: this.estadoBuscadorPorDia,
-                        sancionesAsignadas: this.sancionesAsignadas
-                    });
-                }
+            this.cameras.main.fadeOut(420, 0, 0, 0);
+
+            this.time.delayedCall(420, () => {
+                this.scene.start('PuntajeDia', {
+                    puntajeDia,
+                    siguienteEstado
+                });
             });
         });
     }
