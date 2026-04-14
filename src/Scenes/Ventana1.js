@@ -1,8 +1,8 @@
-import { Dias, construirArbolDia } from '../structures/Personajes.js';
+import { Dias, vectorDelDia, arbolDias } from '../structures/Personajes.js';
 import { Sanciones } from '../structures/Sanciones.js';
+import { ArbolB } from '../structures/ArbolB.js';
 
 export class Ventana1 extends Phaser.Scene {
-
     constructor() {
         super('Ventana1');
     }
@@ -14,8 +14,10 @@ export class Ventana1 extends Phaser.Scene {
         this.volumenActual = typeof data.volumenActual === 'number' ? data.volumenActual : 0.7;
         this.transicionEntrada = data.transicionEntrada || false;
         this.modoSoloFondo = data.modoSoloFondo || false;
-        this.delitosEncontrados = data.delitosEncontrados || [];
-        this.decisiones = {};
+
+        this.delitosEncontrados = Array.isArray(data.delitosEncontrados) ? data.delitosEncontrados : [];
+        this.estadoBuscadorPorDia = data.estadoBuscadorPorDia || {};
+        this.sancionesAsignadas = data.sancionesAsignadas || {};
 
         if (this.diaActual >= 7) {
             this.diaActual = 7;
@@ -54,21 +56,35 @@ export class Ventana1 extends Phaser.Scene {
         this.load.audio('musicaDia5', 'music/b4.mp3');
         this.load.audio('musicaDia6', 'music/b5.mp3');
         this.load.audio('musicaDia7', 'music/b6.mp3');
-
         this.load.audio('click', 'music/click.mp3');
 
-        // Fotos de personajes del día actual (assets/personajes/NOMBRE.png)
-        const pjsDia = Dias[this.diaActual] || [];
-        pjsDia.forEach(pj => {
-            const fn = pj.nombre.split(' ')[0].toLowerCase();
-            this.load.image(`pj_${fn}`, `Personajes/${fn}.png`);
+        const todos = Object.values(Dias).flat();
+        const yaCargados = new Set();
+
+        todos.forEach(pj => {
+            if (!pj || !pj.nombre) return;
+
+            const key = `pj_${this._normalizarNombre(pj.nombre)}`;
+            if (yaCargados.has(key)) return;
+
+            yaCargados.add(key);
+            this.load.image(key, `Personajes/${this._normalizarNombre(pj.nombre)}.png`);
         });
     }
 
     create() {
+        if (!this.estadoBuscadorPorDia[this.diaActual]) {
+            this.estadoBuscadorPorDia[this.diaActual] = {};
+        }
+
         this.yaTransicionando = false;
         this.modalAbierto = false;
         this.arrastrandoVolumen = false;
+        this.elementosContenidoModal = [];
+        this._sancionesModalElements = [];
+        this._manualIndice = 0;
+        this.paginaBuscador = 0;
+        this.scrollState = null;
 
         this.crearTexturaTransicion();
 
@@ -160,13 +176,15 @@ export class Ventana1 extends Phaser.Scene {
         this.crearControlVolumen();
         this.actualizarEstadoDias();
 
-        this.personajesDia = Dias[this.diaActual] || [];
-        this.elementosContenidoModal = [];
+        this.personajesDia = vectorDelDia(this.diaActual) || [];
         if (this.personajesDia.length > 0) {
-            construirArbolDia(this.diaActual);
+            const arbol = new ArbolB(5);
+            this.personajesDia.forEach(pj => arbol.insertar(pj));
+            arbolDias[this.diaActual] = arbol;
         }
 
         this._generarAvataresFaltantes();
+        this.delitosEncontrados = this._deduplicarPersonajes(this.delitosEncontrados);
 
         this.iniciarFadeInMusica();
 
@@ -175,8 +193,39 @@ export class Ventana1 extends Phaser.Scene {
         }
     }
 
+    // ─────────────────────────────────────────────────────────
+    // Helpers base
+    // ─────────────────────────────────────────────────────────
+    _normalizarNombre(nombre = '') {
+        return nombre
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, '_');
+    }
+
+    _obtenerIdPersonaje(pj) {
+        return `${pj.dia}_${pj.rango}_${this._normalizarNombre(pj.nombre || '')}`;
+    }
+
+    _obtenerClaveAvatar(pj) {
+        return `pj_${this._normalizarNombre(pj.nombre || '')}`;
+    }
+
+    _deduplicarPersonajes(lista) {
+        const mapa = new Map();
+
+        (lista || []).forEach(pj => {
+            if (!pj) return;
+            mapa.set(this._obtenerIdPersonaje(pj), pj);
+        });
+
+        return Array.from(mapa.values());
+    }
+
     reproducirClick() {
-        this.sound.play('click', { volume: 0.45 });
+        this.sound.play('click', { volume: 0.35 });
     }
 
     obtenerBackgroundDelDia() {
@@ -240,10 +289,11 @@ export class Ventana1 extends Phaser.Scene {
         });
     }
 
+    // ─────────────────────────────────────────────────────────
+    // Transiciones
+    // ─────────────────────────────────────────────────────────
     crearTexturaTransicion() {
-        if (this.textures.exists('circuloNegroTransicion')) {
-            return;
-        }
+        if (this.textures.exists('circuloNegroTransicion')) return;
 
         const g = this.make.graphics({ x: 0, y: 0, add: false });
         g.fillStyle(0x000000, 1);
@@ -329,6 +379,9 @@ export class Ventana1 extends Phaser.Scene {
         });
     }
 
+    // ─────────────────────────────────────────────────────────
+    // Botones principales
+    // ─────────────────────────────────────────────────────────
     crearBotonBack() {
         this.backBtn = this.add.image(85, 40, 'back');
         this.backBtn.setDepth(50);
@@ -538,6 +591,15 @@ export class Ventana1 extends Phaser.Scene {
 
         this.hitboxFind.on('pointerdown', () => {
             if (this.modalAbierto || this.yaTransicionando) return;
+
+            const resultado = this._validarDiaActualCompleto();
+
+            if (!resultado.todoCorrecto) {
+                this.reproducirClick();
+                this._mostrarResumenValidacionDia(resultado);
+                return;
+            }
+
             this.reproducirClick();
             this.finalizarDia();
         });
@@ -640,6 +702,9 @@ export class Ventana1 extends Phaser.Scene {
         });
     }
 
+    // ─────────────────────────────────────────────────────────
+    // Volumen
+    // ─────────────────────────────────────────────────────────
     crearControlVolumen() {
         this.panelVol = this.add.rectangle(1115, 42, 260, 54, 0x091427, 0.9);
         this.panelVol.setDepth(60);
@@ -756,6 +821,9 @@ export class Ventana1 extends Phaser.Scene {
         this.sliderKnob.x = izquierda + this.sliderWidth * this.volumenActual;
     }
 
+    // ─────────────────────────────────────────────────────────
+    // Modal base
+    // ─────────────────────────────────────────────────────────
     crearModalPersonalizado() {
         this.overlayModal = this.add.rectangle(640, 360, 1280, 720, 0x000000, 0.58);
         this.overlayModal.setDepth(100);
@@ -763,29 +831,29 @@ export class Ventana1 extends Phaser.Scene {
         this.overlayModal.setAlpha(0);
         this.overlayModal.setInteractive();
 
-        this.marcoExterior = this.add.rectangle(640, 360, 820, 510, 0x0b1630, 0.98);
+        this.marcoExterior = this.add.rectangle(640, 360, 1140, 650, 0x06122a, 0.98);
         this.marcoExterior.setDepth(101);
         this.marcoExterior.setStrokeStyle(4, 0x89b4ff, 1);
         this.marcoExterior.setVisible(false);
         this.marcoExterior.setAlpha(0);
 
-        this.barraTitulo = this.add.rectangle(640, 165, 780, 72, 0x17376d, 1);
+        this.barraTitulo = this.add.rectangle(640, 150, 1060, 118, 0x324a88, 1);
         this.barraTitulo.setDepth(102);
-        this.barraTitulo.setStrokeStyle(3, 0xa9c6ff, 1);
+        this.barraTitulo.setStrokeStyle(3, 0xd8e7ff, 1);
         this.barraTitulo.setVisible(false);
         this.barraTitulo.setAlpha(0);
 
-        this.lineaDecorativa1 = this.add.rectangle(640, 215, 740, 3, 0x4f7fd1, 1);
+        this.lineaDecorativa1 = this.add.rectangle(640, 248, 1030, 3, 0x4f7fd1, 1);
         this.lineaDecorativa1.setDepth(102);
         this.lineaDecorativa1.setVisible(false);
         this.lineaDecorativa1.setAlpha(0);
 
-        this.tituloModal = this.add.text(640, 165, '', {
+        this.tituloModal = this.add.text(640, 150, '', {
             fontFamily: '"VT323", monospace',
-            fontSize: '38px',
+            fontSize: '54px',
             color: '#ffffff',
             stroke: '#09111f',
-            strokeThickness: 5,
+            strokeThickness: 6,
             align: 'center'
         });
         this.tituloModal.setOrigin(0.5);
@@ -793,13 +861,13 @@ export class Ventana1 extends Phaser.Scene {
         this.tituloModal.setVisible(false);
         this.tituloModal.setAlpha(0);
 
-        this.cerrarModalBtn = this.add.image(640, 555, 'back');
+        this.cerrarModalBtn = this.add.image(640, 676, 'back');
         this.cerrarModalBtn.setDepth(103);
-        this.cerrarModalBtn.setScale(0.22);
+        this.cerrarModalBtn.setScale(0.20);
         this.cerrarModalBtn.setVisible(false);
         this.cerrarModalBtn.setAlpha(0);
 
-        this.cerrarModalZone = this.add.zone(640, 555, 170, 55);
+        this.cerrarModalZone = this.add.zone(640, 676, 180, 52);
         this.cerrarModalZone.setDepth(104);
         this.cerrarModalZone.setVisible(false);
 
@@ -808,7 +876,7 @@ export class Ventana1 extends Phaser.Scene {
             this.tweens.killTweensOf(this.cerrarModalBtn);
             this.tweens.add({
                 targets: this.cerrarModalBtn,
-                scale: 0.235,
+                scale: 0.215,
                 duration: 120
             });
         });
@@ -818,7 +886,7 @@ export class Ventana1 extends Phaser.Scene {
             this.tweens.killTweensOf(this.cerrarModalBtn);
             this.tweens.add({
                 targets: this.cerrarModalBtn,
-                scale: 0.22,
+                scale: 0.20,
                 duration: 120
             });
         });
@@ -834,6 +902,11 @@ export class Ventana1 extends Phaser.Scene {
         }
 
         this.escHandler = () => {
+            if (this._sancionesModalElements && this._sancionesModalElements.length) {
+                this._cerrarSelectorSancionesModal();
+                return;
+            }
+
             if (this.modalAbierto) {
                 this.cerrarModal();
             }
@@ -848,23 +921,145 @@ export class Ventana1 extends Phaser.Scene {
         this.modalAbierto = true;
         this.desactivarInteractivosPrincipales();
 
-        let titulo = '';
+        if (tipo === 'buscar') {
+            this.tituloModal.setText('Buscador de delitos');
+        }
 
-        if (tipo === 'buscar') titulo = 'Buscador de delitos';
-        if (tipo === 'encontrados') titulo = 'Delitos encontrados';
-        if (tipo === 'manual') titulo = 'Manual de delitos';
+        if (tipo === 'encontrados') {
+            this.tituloModal.setText(`Delitos encontrados - Día ${this.diaActual}`);
+        }
 
-        this.tituloModal.setText(titulo);
+        if (tipo === 'manual') {
+            this.tituloModal.setText('Manual de delitos');
+        }
+
         this.mostrarModal();
 
-        if (tipo === 'buscar') {
-            this.paginaBuscador = 0;
-            this.time.delayedCall(180, () => this.mostrarContenidoBuscador());
-        } else if (tipo === 'encontrados') {
-            this.time.delayedCall(180, () => this.mostrarContenidoEncontrados(null));
-        } else if (tipo === 'manual') {
-            this.time.delayedCall(180, () => this.mostrarContenidoManual());
+        this.time.delayedCall(180, () => {
+            if (tipo === 'buscar') {
+                this.mostrarContenidoBuscador();
+            }
+
+            if (tipo === 'encontrados') {
+                // SOLO día actual, pero editable
+                this.mostrarContenidoEncontrados(this.diaActual, false);
+            }
+
+            if (tipo === 'manual') {
+                this.mostrarContenidoManual();
+            }
+        });
+    }
+    _crearTarjetaBuscador(pj, topY) {
+        const container = this.scrollState.container;
+        const decision = this._obtenerDecisionDiaActual(pj);
+
+        const textStyle = {
+            fontFamily: '"VT323", monospace',
+            fontSize: '21px',
+            color: '#d7e4ff',
+            wordWrap: { width: 500 },
+            lineSpacing: 5
+        };
+
+        const medidor = this.add.text(-3000, -3000, pj.textoCaso, textStyle);
+        const caseHeight = medidor.height;
+        medidor.destroy();
+
+        const cardHeight = Math.max(130, caseHeight + 48);
+        const centerY = topY + cardHeight / 2;
+
+        const filaBg = this.add.rectangle(600, centerY, 960, cardHeight, 0x0f1633, 0.72);
+        filaBg.setStrokeStyle(2, 0x264c8a, 1);
+
+        const marco = this.add.rectangle(158, centerY, 82, 82, 0x1b2d5a, 1);
+        marco.setStrokeStyle(2, 0x7aa4ff, 1);
+
+        container.add([filaBg, marco]);
+
+        const key = this._obtenerClaveAvatar(pj);
+        if (this.textures.exists(key)) {
+            const foto = this.add.image(158, centerY, key).setDisplaySize(74, 74);
+            container.add(foto);
+        } else {
+            const placeholderBg = this.add.rectangle(158, centerY, 74, 74, 0x2d4b7e, 1);
+            const inicialTxt = this.add.text(158, centerY, pj.nombre.charAt(0).toUpperCase(), {
+                fontFamily: '"VT323", monospace',
+                fontSize: '34px',
+                color: '#ffffff'
+            }).setOrigin(0.5);
+            container.add([placeholderBg, inicialTxt]);
         }
+
+        const nomTxt = this.add.text(225, topY + 14, pj.nombre.trim(), {
+            fontFamily: '"VT323", monospace',
+            fontSize: '32px',
+            color: '#ffffff'
+        });
+
+        const casoTxt = this.add.text(225, topY + 54, pj.textoCaso, textStyle);
+        container.add([nomTxt, casoTxt]);
+
+        const btnY = centerY - 12;
+
+        const btnDelBg = this.add.rectangle(855, btnY, 130, 46, decision === 'delito' ? 0x5b9947 : 0x3f6e34, 1);
+        btnDelBg.setStrokeStyle(2, 0xa4dd8f, 1);
+
+        const btnDelTxt = this.add.text(855, btnY, 'DELITO', {
+            fontFamily: '"VT323", monospace',
+            fontSize: '24px',
+            color: '#f4fff0'
+        }).setOrigin(0.5);
+
+        const btnLibBg = this.add.rectangle(1010, btnY, 130, 46, decision === 'libre' ? 0x6b67bc : 0x474276, 1);
+        btnLibBg.setStrokeStyle(2, 0xbab8ff, 1);
+
+        const btnLibTxt = this.add.text(1010, btnY, 'LIBRE', {
+            fontFamily: '"VT323", monospace',
+            fontSize: '24px',
+            color: '#f5f5ff'
+        }).setOrigin(0.5);
+
+        const statusTxt = this.add.text(
+            932,
+            centerY + 34,
+            decision === 'delito'
+                ? 'Marcado como delito'
+                : decision === 'libre'
+                    ? 'Marcado como libre'
+                    : 'Sin clasificar',
+            {
+                fontFamily: '"VT323", monospace',
+                fontSize: '18px',
+                color: decision ? '#dfeaff' : '#a9badc'
+            }
+        ).setOrigin(0.5);
+
+        const zDel = this.add.zone(855, btnY, 130, 46).setInteractive({ cursor: 'pointer' });
+        zDel.on('pointerover', () => btnDelBg.setFillStyle(0x6caf55, 1));
+        zDel.on('pointerout', () => btnDelBg.setFillStyle(decision === 'delito' ? 0x5b9947 : 0x3f6e34, 1));
+        zDel.on('pointerdown', () => {
+            this.reproducirClick();
+            this._marcarComoDelito(pj);
+            this.mostrarContenidoBuscador();
+        });
+
+        const zLib = this.add.zone(1010, btnY, 130, 46).setInteractive({ cursor: 'pointer' });
+        zLib.on('pointerover', () => btnLibBg.setFillStyle(0x7a76d1, 1));
+        zLib.on('pointerout', () => btnLibBg.setFillStyle(decision === 'libre' ? 0x6b67bc : 0x474276, 1));
+        zLib.on('pointerdown', () => {
+            this.reproducirClick();
+            this._marcarComoLibre(pj);
+            this.mostrarContenidoBuscador();
+        });
+
+        container.add([
+            btnDelBg, btnDelTxt,
+            btnLibBg, btnLibTxt,
+            statusTxt, zDel, zLib
+        ]);
+
+        return topY + cardHeight + 16;
     }
 
     abrirModalDia(numeroDia) {
@@ -873,9 +1068,147 @@ export class Ventana1 extends Phaser.Scene {
         this.modalAbierto = true;
         this.desactivarInteractivosPrincipales();
 
-        this.tituloModal.setText(`Delitos encontrados — Día ${numeroDia}`);
+        this.tituloModal.setText(`Delitos encontrados - Día ${numeroDia}`);
         this.mostrarModal();
-        this.time.delayedCall(180, () => this.mostrarContenidoEncontrados(numeroDia));
+
+        this.time.delayedCall(180, () => {
+            // SOLO lectura cuando entras desde la carpeta de días
+            this.mostrarContenidoEncontrados(numeroDia, true);
+        });
+    }
+    _esSancionCorrecta(pj, sancionAsignada) {
+        if (!pj || !pj.sancion || pj.sancion === 'NO TIENE') {
+            return false;
+        }
+
+        if (!sancionAsignada) {
+            return false;
+        }
+
+        return pj.sancion.nombre === sancionAsignada.nombre;
+    }
+
+    _validarDiaActualCompleto() {
+        const personajes = this.personajesDia || [];
+
+        const resultado = {
+            sinClasificar: 0,
+            delitosMarcadosComoLibre: 0,
+            libresMarcadosComoDelito: 0,
+            sancionesPendientes: 0,
+            sancionesIncorrectas: 0,
+            todoCorrecto: false
+        };
+
+        personajes.forEach(pj => {
+            const decision = this._obtenerDecisionDiaActual(pj);
+            const sancionAsignada = this._obtenerSancionAsignada(pj);
+
+            // 1) Si ni siquiera se clasificó
+            if (!decision) {
+                resultado.sinClasificar++;
+                return;
+            }
+
+            // 2) Si era delito real
+            if (pj.delito === true) {
+                if (decision !== 'delito') {
+                    resultado.delitosMarcadosComoLibre++;
+                    return;
+                }
+
+                // Solo si está bien marcado como delito revisamos sanción
+                if (!sancionAsignada) {
+                    resultado.sancionesPendientes++;
+                    return;
+                }
+
+                if (!this._esSancionCorrecta(pj, sancionAsignada)) {
+                    resultado.sancionesIncorrectas++;
+                }
+
+                return;
+            }
+
+            // 3) Si era libre/inocente
+            if (pj.delito === false) {
+                if (decision !== 'libre') {
+                    resultado.libresMarcadosComoDelito++;
+                }
+            }
+        });
+
+        resultado.todoCorrecto =
+            resultado.sinClasificar === 0 &&
+            resultado.delitosMarcadosComoLibre === 0 &&
+            resultado.libresMarcadosComoDelito === 0 &&
+            resultado.sancionesPendientes === 0 &&
+            resultado.sancionesIncorrectas === 0;
+
+        return resultado;
+    }
+
+    _mostrarResumenValidacionDia(resultado) {
+        if (this.avisoValidacionBg) {
+            this.avisoValidacionBg.destroy();
+            this.avisoValidacionBg = null;
+        }
+
+        if (this.avisoValidacionTxt) {
+            this.avisoValidacionTxt.destroy();
+            this.avisoValidacionTxt = null;
+        }
+
+        const lineas = ['No puedes finalizar el día todavía.'];
+
+        if (resultado.sinClasificar > 0) {
+            lineas.push(`• Te faltan ${resultado.sinClasificar} personaje(s) por clasificar.`);
+        }
+
+        if (resultado.delitosMarcadosComoLibre > 0) {
+            lineas.push(`• Tienes ${resultado.delitosMarcadosComoLibre} delito(s) real(es) marcados como LIBRE.`);
+        }
+
+        if (resultado.libresMarcadosComoDelito > 0) {
+            lineas.push(`• Tienes ${resultado.libresMarcadosComoDelito} inocente(s) marcados como DELITO.`);
+        }
+
+        if (resultado.sancionesPendientes > 0) {
+            lineas.push(`• Te faltan ${resultado.sancionesPendientes} sanción(es) por asignar.`);
+        }
+
+        if (resultado.sancionesIncorrectas > 0) {
+            lineas.push(`• Tienes ${resultado.sancionesIncorrectas} sanción(es) incorrecta(s).`);
+        }
+
+        const texto = lineas.join('\n');
+        const altura = 80 + (lineas.length * 28);
+
+        this.avisoValidacionBg = this.add.rectangle(640, 575, 760, altura, 0x4a2a2a, 0.96);
+        this.avisoValidacionBg.setDepth(180);
+        this.avisoValidacionBg.setStrokeStyle(3, 0xd38b8b, 1);
+
+        this.avisoValidacionTxt = this.add.text(640, 575, texto, {
+            fontFamily: '"VT323", monospace',
+            fontSize: '24px',
+            color: '#fff1f1',
+            align: 'center',
+            wordWrap: { width: 700 }
+        });
+        this.avisoValidacionTxt.setOrigin(0.5);
+        this.avisoValidacionTxt.setDepth(181);
+
+        this.time.delayedCall(2600, () => {
+            if (this.avisoValidacionBg) {
+                this.avisoValidacionBg.destroy();
+                this.avisoValidacionBg = null;
+            }
+
+            if (this.avisoValidacionTxt) {
+                this.avisoValidacionTxt.destroy();
+                this.avisoValidacionTxt = null;
+            }
+        });
     }
 
     mostrarModal() {
@@ -908,8 +1241,10 @@ export class Ventana1 extends Phaser.Scene {
     }
 
     cerrarModal() {
+        this._cerrarSelectorSancionesModal();
         this.limpiarContenidoModal();
         this.cerrarModalZone.disableInteractive();
+        this._manualIndice = 0;
 
         const elementos = [
             this.overlayModal,
@@ -954,7 +1289,9 @@ export class Ventana1 extends Phaser.Scene {
                         diaActual: this.diaActual + 1,
                         transicionEntrada: true,
                         volumenActual: this.volumenActual,
-                        delitosEncontrados: this.delitosEncontrados
+                        delitosEncontrados: this.delitosEncontrados,
+                        estadoBuscadorPorDia: this.estadoBuscadorPorDia,
+                        sancionesAsignadas: this.sancionesAsignadas
                     });
                 } else {
                     this.scene.restart({
@@ -962,7 +1299,9 @@ export class Ventana1 extends Phaser.Scene {
                         modoSoloFondo: true,
                         transicionEntrada: true,
                         volumenActual: this.volumenActual,
-                        delitosEncontrados: this.delitosEncontrados
+                        delitosEncontrados: this.delitosEncontrados,
+                        estadoBuscadorPorDia: this.estadoBuscadorPorDia,
+                        sancionesAsignadas: this.sancionesAsignadas
                     });
                 }
             });
@@ -1029,15 +1368,24 @@ export class Ventana1 extends Phaser.Scene {
             this.input.keyboard.off('keydown-ESC', this.escHandler);
         }
 
+        if (this.wheelHandlerGlobal) {
+            this.input.off('wheel', this.wheelHandlerGlobal);
+        }
+
+        this._destruirScrollState();
+
         if (this.sonidoVentana && this.sonidoVentana.isPlaying) {
             this.sonidoVentana.stop();
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  LIMPIEZA DE CONTENIDO MODAL
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────
+    // Limpieza modal
+    // ─────────────────────────────────────────────────────────
     limpiarContenidoModal() {
+        this._destruirScrollState();
+        this._cerrarSelectorSancionesModal();
+
         if (!this.elementosContenidoModal) return;
         this.elementosContenidoModal.forEach(el => {
             if (el && el.destroy) el.destroy();
@@ -1045,404 +1393,936 @@ export class Ventana1 extends Phaser.Scene {
         this.elementosContenidoModal = [];
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  BUSCADOR DE DELITOS — 5 perfiles por página, 2 páginas
-    // ─────────────────────────────────────────────────────────────────────────
+    contarSancionesPendientes() {
+        const delitos = this._deduplicarPersonajes(this.delitosEncontrados || []);
+
+        let pendientes = 0;
+
+        delitos.forEach(pj => {
+            const sancion = this._obtenerSancionAsignada(pj);
+            if (!sancion) {
+                pendientes++;
+            }
+        });
+
+        return pendientes;
+    }
+
+    tieneSancionesPendientes() {
+        return this.contarSancionesPendientes() > 0;
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Scroll
+    // ─────────────────────────────────────────────────────────
+    _crearAreaScrollable(x, y, width, height) {
+        this._destruirScrollState();
+
+        const container = this.add.container(0, 0);
+        container.setDepth(109);
+
+        const maskGraphics = this.make.graphics({ x: 0, y: 0, add: false });
+        maskGraphics.fillStyle(0xffffff, 1);
+        maskGraphics.fillRect(x, y, width, height);
+
+        const mask = maskGraphics.createGeometryMask();
+        container.setMask(mask);
+
+        const trackBg = this.add.rectangle(x + width + 20, y + height / 2, 10, height, 0x24407c, 1);
+        trackBg.setDepth(114).setStrokeStyle(2, 0x7ea8ff, 1);
+
+        const knob = this.add.rectangle(x + width + 20, y + 40, 18, 88, 0xdce8ff, 1);
+        knob.setDepth(115).setStrokeStyle(2, 0xffffff, 1);
+        knob.setInteractive({ cursor: 'pointer' });
+
+        const trackZone = this.add.zone(x + width + 20, y + height / 2, 28, height).setDepth(116).setInteractive({ cursor: 'pointer' });
+
+        const state = {
+            x,
+            y,
+            width,
+            height,
+            container,
+            maskGraphics,
+            mask,
+            trackBg,
+            knob,
+            trackZone,
+            contentBottomY: y,
+            offset: 0,
+            maxScroll: 0,
+            knobHeight: 88,
+            dragging: false,
+            dragOffsetY: 0,
+            pointerMoveHandler: null,
+            pointerUpHandler: null
+        };
+
+        knob.on('pointerdown', (pointer) => {
+            if (state.maxScroll <= 0) return;
+            state.dragging = true;
+            state.dragOffsetY = pointer.y - state.knob.y;
+        });
+
+        trackZone.on('pointerdown', (pointer) => {
+            if (state.maxScroll <= 0) return;
+            const minY = state.y + state.knobHeight / 2;
+            const maxY = state.y + state.height - state.knobHeight / 2;
+            const yClamped = Phaser.Math.Clamp(pointer.y, minY, maxY);
+            const ratio = (yClamped - minY) / Math.max(1, (maxY - minY));
+            this._setScrollFromRatio(state, ratio);
+        });
+
+        state.pointerMoveHandler = (pointer) => {
+            if (!state.dragging || state.maxScroll <= 0) return;
+
+            const minY = state.y + state.knobHeight / 2;
+            const maxY = state.y + state.height - state.knobHeight / 2;
+            const targetY = Phaser.Math.Clamp(pointer.y - state.dragOffsetY, minY, maxY);
+            const ratio = (targetY - minY) / Math.max(1, (maxY - minY));
+            this._setScrollFromRatio(state, ratio);
+        };
+
+        state.pointerUpHandler = () => {
+            state.dragging = false;
+        };
+
+        this.input.on('pointermove', state.pointerMoveHandler);
+        this.input.on('pointerup', state.pointerUpHandler);
+
+        if (this.wheelHandlerGlobal) {
+            this.input.off('wheel', this.wheelHandlerGlobal);
+        }
+
+        this.wheelHandlerGlobal = (pointer, gameObjects, deltaX, deltaY) => {
+            if (!this.modalAbierto || !this.scrollState) return;
+            if (this._sancionesModalElements && this._sancionesModalElements.length) return;
+
+            const s = this.scrollState;
+            const dentroX = pointer.x >= s.x && pointer.x <= s.x + s.width + 40;
+            const dentroY = pointer.y >= s.y && pointer.y <= s.y + s.height;
+
+            if (!dentroX || !dentroY) return;
+            this._desplazarScroll(s, deltaY * 0.9);
+        };
+
+        this.input.on('wheel', this.wheelHandlerGlobal);
+
+        this.scrollState = state;
+        this.elementosContenidoModal.push(container, trackBg, knob, trackZone);
+        return state;
+    }
+
+    _finalizarAreaScrollable(contentBottomY, offsetAnterior = 0) {
+        if (!this.scrollState) return;
+
+        const state = this.scrollState;
+        state.contentBottomY = contentBottomY;
+
+        const contentHeight = Math.max(0, contentBottomY - state.y);
+        state.maxScroll = Math.max(0, contentHeight - state.height);
+
+        if (state.maxScroll <= 0) {
+            state.offset = 0;
+            state.container.y = 0;
+            state.knob.y = state.y + state.knobHeight / 2;
+            state.trackBg.setAlpha(0.25);
+            state.knob.setAlpha(0.35);
+            return;
+        }
+
+        state.trackBg.setAlpha(1);
+        state.knob.setAlpha(1);
+
+        state.offset = Phaser.Math.Clamp(offsetAnterior, 0, state.maxScroll);
+        state.container.y = -state.offset;
+        this._actualizarScrollVisual(state);
+    }
+
+    _actualizarScrollVisual(state) {
+        if (!state) return;
+
+        if (state.maxScroll <= 0) {
+            state.knob.y = state.y + state.knobHeight / 2;
+            return;
+        }
+
+        const minY = state.y + state.knobHeight / 2;
+        const maxY = state.y + state.height - state.knobHeight / 2;
+        const ratio = state.offset / state.maxScroll;
+        state.knob.y = Phaser.Math.Linear(minY, maxY, ratio);
+    }
+
+    _setScrollFromRatio(state, ratio) {
+        if (!state) return;
+
+        ratio = Phaser.Math.Clamp(ratio, 0, 1);
+        state.offset = ratio * state.maxScroll;
+        state.container.y = -state.offset;
+        this._actualizarScrollVisual(state);
+    }
+
+    _desplazarScroll(state, delta) {
+        if (!state || state.maxScroll <= 0) return;
+
+        state.offset = Phaser.Math.Clamp(state.offset + delta, 0, state.maxScroll);
+        state.container.y = -state.offset;
+        this._actualizarScrollVisual(state);
+    }
+
+    _destruirScrollState() {
+        if (!this.scrollState) return;
+
+        const state = this.scrollState;
+
+        if (state.pointerMoveHandler) this.input.off('pointermove', state.pointerMoveHandler);
+        if (state.pointerUpHandler) this.input.off('pointerup', state.pointerUpHandler);
+
+        if (state.trackZone && state.trackZone.destroy) state.trackZone.destroy();
+        if (state.knob && state.knob.destroy) state.knob.destroy();
+        if (state.trackBg && state.trackBg.destroy) state.trackBg.destroy();
+        if (state.container && state.container.destroy) state.container.destroy();
+        if (state.maskGraphics && state.maskGraphics.destroy) state.maskGraphics.destroy();
+
+        this.scrollState = null;
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Estado buscador / sanciones
+    // ─────────────────────────────────────────────────────────
+    _obtenerDecisionDiaActual(pj) {
+        return this.estadoBuscadorPorDia[this.diaActual]?.[this._obtenerIdPersonaje(pj)] || null;
+    }
+
+    _guardarDecisionDiaActual(pj, decision) {
+        const id = this._obtenerIdPersonaje(pj);
+        if (!this.estadoBuscadorPorDia[this.diaActual]) {
+            this.estadoBuscadorPorDia[this.diaActual] = {};
+        }
+        this.estadoBuscadorPorDia[this.diaActual][id] = decision;
+    }
+
+    _marcarComoDelito(pj) {
+        const id = this._obtenerIdPersonaje(pj);
+        this._guardarDecisionDiaActual(pj, 'delito');
+
+        const yaExiste = this.delitosEncontrados.some(x => this._obtenerIdPersonaje(x) === id);
+        if (!yaExiste) {
+            this.delitosEncontrados.push(pj);
+        }
+
+        this.delitosEncontrados = this._deduplicarPersonajes(this.delitosEncontrados);
+    }
+
+    _marcarComoLibre(pj) {
+        const id = this._obtenerIdPersonaje(pj);
+        this._guardarDecisionDiaActual(pj, 'libre');
+
+        this.delitosEncontrados = this.delitosEncontrados.filter(x => this._obtenerIdPersonaje(x) !== id);
+        delete this.sancionesAsignadas[id];
+    }
+
+    _getPersonajeStorageKey(pj) {
+        return this._obtenerIdPersonaje(pj);
+    }
+
+    _obtenerSancionAsignada(pj) {
+        const key = this._getPersonajeStorageKey(pj);
+        return this.sancionesAsignadas[key] || null;
+    }
+
+    _asignarSancionTemporal(pj, sancion) {
+        const key = this._getPersonajeStorageKey(pj);
+
+        if (!sancion) {
+            delete this.sancionesAsignadas[key];
+            return;
+        }
+
+        this.sancionesAsignadas[key] = {
+            nombre: sancion.nombre,
+            descripcion: sancion.descripcion,
+            consecuencia: sancion.consecuencia,
+            ejemplo: sancion.ejemplo,
+            queSignifica: sancion.queSignifica
+        };
+    }
+
+    _esVistaDiaSoloLectura(filtrarDia) {
+        return filtrarDia !== null && filtrarDia !== undefined;
+    }
+
+    _cerrarSelectorSancionesModal() {
+        if (this._sancionesModalElements && this._sancionesModalElements.length) {
+            this._sancionesModalElements.forEach(el => {
+                if (el && el.destroy) el.destroy();
+            });
+        }
+        this._sancionesModalElements = [];
+    }
+
+    _mostrarAvisoTemporal(texto, colorFondo = 0x173250, colorBorde = 0x4a7bd0) {
+        const bg = this.add.rectangle(640, 590, 560, 56, colorFondo, 1).setDepth(160);
+        bg.setStrokeStyle(2, colorBorde, 1);
+
+        const txt = this.add.text(640, 590, texto, {
+            fontFamily: '"VT323", monospace',
+            fontSize: '24px',
+            color: '#eef5ff',
+            align: 'center',
+            wordWrap: { width: 500 }
+        }).setOrigin(0.5).setDepth(161);
+
+        this.elementosContenidoModal.push(bg, txt);
+
+        this.time.delayedCall(1000, () => {
+            if (bg && bg.destroy) bg.destroy();
+            if (txt && txt.destroy) txt.destroy();
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Buscador
+    // ─────────────────────────────────────────────────────────
     mostrarContenidoBuscador() {
+        const offsetAnterior = this.scrollState ? this.scrollState.offset : 0;
         this.limpiarContenidoModal();
 
-        const personajes = this.personajesDia;
-        if (!personajes || personajes.length === 0) {
+        const personajes = this.personajesDia || [];
+        if (!personajes.length) {
             const txt = this.add.text(640, 380, 'Sin datos para este día.', {
-                fontFamily: '"VT323", monospace', fontSize: '24px', color: '#6a8aaa'
+                fontFamily: '"VT323", monospace',
+                fontSize: '28px',
+                color: '#6a8aaa'
             });
             txt.setOrigin(0.5).setDepth(110);
             this.elementosContenidoModal.push(txt);
             return;
         }
 
-        const inicio = this.paginaBuscador * 5;
-        const paginaActual = personajes.slice(inicio, inicio + 5);
+        const infoTxt = this.add.text(640, 286, 'Clasifica cada caso como DELITO o LIBRE', {
+            fontFamily: '"VT323", monospace',
+            fontSize: '26px',
+            color: '#dce8ff',
+            stroke: '#09111f',
+            strokeThickness: 3
+        }).setOrigin(0.5).setDepth(110);
 
-        // Indicador de página
-        const indTxt = this.add.text(640, 232, `Página ${this.paginaBuscador + 1} / 2`, {
-            fontFamily: '"VT323", monospace', fontSize: '18px', color: '#7a9acc'
+        const sep = this.add.rectangle(640, 322, 1020, 2, 0x4d7ad0, 0.95);
+        sep.setDepth(108);
+
+        this.elementosContenidoModal.push(infoTxt, sep);
+
+        this._crearAreaScrollable(110, 342, 980, 258);
+
+        let currentY = 356;
+        personajes.forEach(pj => {
+            currentY = this._crearTarjetaBuscador(pj, currentY);
         });
-        indTxt.setOrigin(0.5).setDepth(110);
-        this.elementosContenidoModal.push(indTxt);
 
-        const sep0 = this.add.rectangle(640, 247, 760, 1, 0x2a4a7a, 0.6);
-        sep0.setDepth(108);
-        this.elementosContenidoModal.push(sep0);
-
-        // Navegación
-        if (this.paginaBuscador > 0) {
-            this._crearBtnNav('< Anterior', 315, 232, () => {
-                this.paginaBuscador--;
-                this.mostrarContenidoBuscador();
-            });
-        }
-        if (this.paginaBuscador < 1) {
-            this._crearBtnNav('Siguiente >', 965, 232, () => {
-                this.paginaBuscador++;
-                this.mostrarContenidoBuscador();
-            });
-        }
-
-        // Tarjetas — filas en y = 270, 326, 382, 438, 494
-        const rowYs = [270, 326, 382, 438, 494];
-        paginaActual.forEach((pj, i) => this._crearTarjetaBuscador(pj, rowYs[i]));
+        this._finalizarAreaScrollable(currentY + 12, offsetAnterior);
     }
 
-    _crearBtnNav(texto, x, y, callback) {
-        const bg = this.add.rectangle(x, y, 130, 24, 0x17376d, 1);
-        bg.setDepth(110).setStrokeStyle(1, 0x6a9aee, 1);
-        this.elementosContenidoModal.push(bg);
 
-        const txt = this.add.text(x, y, texto, {
-            fontFamily: '"VT323", monospace', fontSize: '16px', color: '#ccdeff'
-        });
-        txt.setOrigin(0.5).setDepth(111);
-        this.elementosContenidoModal.push(txt);
 
-        const zone = this.add.zone(x, y, 130, 24).setDepth(112).setInteractive({ cursor: 'pointer' });
-        zone.on('pointerover', () => bg.setFillStyle(0x2a5aaa, 1));
-        zone.on('pointerout',  () => bg.setFillStyle(0x17376d, 1));
-        zone.on('pointerdown', () => { this.reproducirClick(); callback(); });
-        this.elementosContenidoModal.push(zone);
-    }
-
-    _crearTarjetaBuscador(pj, rowY) {
-        const decisionActual = this.decisiones[pj.rango] || null;
-        const bloqueado      = decisionActual !== null;
-
-        // Línea separadora superior
-        const linea = this.add.rectangle(640, rowY - 26, 760, 1, 0x1e3860, 0.8);
-        linea.setDepth(108);
-        this.elementosContenidoModal.push(linea);
-
-        // ---- Marco de foto ----
-        const borderColor = bloqueado
-            ? (decisionActual === 'delito' ? 0xaa4444 : 0x4444aa)
-            : 0x5a8aee;
-        const marco = this.add.rectangle(272, rowY, 54, 54, 0x0d1e3a, 1);
-        marco.setDepth(108).setStrokeStyle(2, borderColor, 1);
-        this.elementosContenidoModal.push(marco);
-
-        // Foto o placeholder con inicial
-        const fn  = pj.nombre.split(' ')[0].toLowerCase();
-        const key = `pj_${fn}`;
-        if (this.textures.exists(key)) {
-            const foto = this.add.image(272, rowY, key).setDisplaySize(50, 50);
-            foto.setDepth(109);
-            if (bloqueado) foto.setAlpha(0.4);
-            this.elementosContenidoModal.push(foto);
-        } else {
-            const placeholderBg = this.add.rectangle(272, rowY, 50, 50, 0x1a3560, 1);
-            placeholderBg.setDepth(109);
-            if (bloqueado) placeholderBg.setAlpha(0.4);
-            this.elementosContenidoModal.push(placeholderBg);
-            const inicialTxt = this.add.text(272, rowY, pj.nombre.charAt(0).toUpperCase(), {
-                fontFamily: '"VT323", monospace', fontSize: '30px', color: '#7aaacf'
-            });
-            inicialTxt.setOrigin(0.5).setDepth(110);
-            if (bloqueado) inicialTxt.setAlpha(0.4);
-            this.elementosContenidoModal.push(inicialTxt);
-        }
-
-        const alphaTexto = bloqueado ? 0.38 : 1;
-
-        // Nombre
-        const nomTxt = this.add.text(308, rowY - 11, pj.nombre, {
-            fontFamily: '"VT323", monospace', fontSize: '20px', color: '#ffffff'
-        });
-        nomTxt.setOrigin(0, 0.5).setDepth(109).setAlpha(alphaTexto);
-        this.elementosContenidoModal.push(nomTxt);
-
-        // Situación
-        const caso = pj.textoCaso.length > 65 ? pj.textoCaso.substring(0, 65) + '…' : pj.textoCaso;
-        const casoTxt = this.add.text(308, rowY + 9, caso, {
-            fontFamily: '"VT323", monospace', fontSize: '14px', color: '#7a9abf'
-        });
-        casoTxt.setOrigin(0, 0.5).setDepth(109).setAlpha(alphaTexto);
-        this.elementosContenidoModal.push(casoTxt);
-
-        // ---- Botones ----
-        const bgDel = this.add.rectangle(904, rowY, 86, 28, 0x163016, 1);
-        bgDel.setDepth(109).setStrokeStyle(1, 0x3a7a3a, 1);
-        this.elementosContenidoModal.push(bgDel);
-
-        const txtDel = this.add.text(904, rowY, 'DELITO', {
-            fontFamily: '"VT323", monospace', fontSize: '16px', color: '#66cc66'
-        });
-        txtDel.setOrigin(0.5).setDepth(110);
-        this.elementosContenidoModal.push(txtDel);
-
-        const bgLib = this.add.rectangle(998, rowY, 86, 28, 0x101630, 1);
-        bgLib.setDepth(109).setStrokeStyle(1, 0x3a3a7a, 1);
-        this.elementosContenidoModal.push(bgLib);
-
-        const txtLib = this.add.text(998, rowY, 'LIBRE', {
-            fontFamily: '"VT323", monospace', fontSize: '16px', color: '#6666cc'
-        });
-        txtLib.setOrigin(0.5).setDepth(110);
-        this.elementosContenidoModal.push(txtLib);
-
-        // Estado visual de botones
-        const aplicarEstado = (dec) => {
-            if (dec === 'delito') {
-                bgDel.setFillStyle(0x2a7a2a, 1); txtDel.setColor('#aaffaa');
-                bgLib.setFillStyle(0x080c14, 1); txtLib.setColor('#2a3a55');
-            } else if (dec === 'libre') {
-                bgDel.setFillStyle(0x081008, 1); txtDel.setColor('#2a4a2a');
-                bgLib.setFillStyle(0x2a2a7a, 1); txtLib.setColor('#aaaaff');
-            } else {
-                bgDel.setFillStyle(0x163016, 1); txtDel.setColor('#66cc66');
-                bgLib.setFillStyle(0x101630, 1); txtLib.setColor('#6666cc');
-            }
-        };
-        aplicarEstado(decisionActual);
-
-        // ---- Si ya está bloqueado: superponer veredicto y salir ----
-        if (bloqueado) {
-            const overlayBg = this.add.rectangle(620, rowY, 740, 52, 0x000000, 0.6);
-            overlayBg.setDepth(113);
-            this.elementosContenidoModal.push(overlayBg);
-
-            const veredictColor = decisionActual === 'delito' ? '#ff8888' : '#8888ff';
-            const veredictLabel = decisionActual === 'delito'
-                ? '✓  MARCADO COMO DELITO'
-                : '✓  MARCADO COMO LIBRE';
-            const veredicto = this.add.text(620, rowY, veredictLabel, {
-                fontFamily: '"VT323", monospace', fontSize: '19px', color: veredictColor
-            });
-            veredicto.setOrigin(0.5).setDepth(114);
-            this.elementosContenidoModal.push(veredicto);
-            return; // sin zonas interactivas
-        }
-
-        // ---- Zonas interactivas (solo si sin decisión previa) ----
-        const zDel = this.add.zone(904, rowY, 86, 28).setDepth(112).setInteractive({ cursor: 'pointer' });
-        zDel.on('pointerover', () => bgDel.setFillStyle(0x1e5a1e, 1));
-        zDel.on('pointerout',  () => aplicarEstado(null));
-        zDel.on('pointerdown', () => {
-            this.reproducirClick();
-            this.decisiones[pj.rango] = 'delito';
-            if (!this.delitosEncontrados.find(d => d.rango === pj.rango)) {
-                this.delitosEncontrados.push(pj);
-            }
-            this.time.delayedCall(50, () => this.mostrarContenidoBuscador());
-        });
-        this.elementosContenidoModal.push(zDel);
-
-        const zLib = this.add.zone(998, rowY, 86, 28).setDepth(112).setInteractive({ cursor: 'pointer' });
-        zLib.on('pointerover', () => bgLib.setFillStyle(0x1e1e5a, 1));
-        zLib.on('pointerout',  () => aplicarEstado(null));
-        zLib.on('pointerdown', () => {
-            this.reproducirClick();
-            this.decisiones[pj.rango] = 'libre';
-            this.delitosEncontrados = this.delitosEncontrados.filter(d => d.rango !== pj.rango);
-            this.time.delayedCall(50, () => this.mostrarContenidoBuscador());
-        });
-        this.elementosContenidoModal.push(zLib);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    //  DELITOS ENCONTRADOS
-    //  filtrarDia = número de día para filtrar, null = mostrar todos
-    // ─────────────────────────────────────────────────────────────────────────
-    mostrarContenidoEncontrados(filtrarDia) {
+    // ─────────────────────────────────────────────────────────
+    // Delitos encontrados
+    // ─────────────────────────────────────────────────────────
+    mostrarContenidoEncontrados(filtrarDia, soloLectura = false) {
+        const offsetAnterior = this.scrollState ? this.scrollState.offset : 0;
         this.limpiarContenidoModal();
 
-        const lista = filtrarDia !== null && filtrarDia !== undefined
-            ? this.delitosEncontrados.filter(pj => pj.dia === filtrarDia)
-            : this.delitosEncontrados;
+        let lista = this.delitosEncontrados || [];
+
+        if (filtrarDia !== null && filtrarDia !== undefined) {
+            lista = lista.filter(pj => pj.dia === filtrarDia);
+        }
+
+        lista = this._deduplicarPersonajes(lista);
 
         if (lista.length === 0) {
-            const txt = this.add.text(640, 380, 'Ningún delito registrado aún.', {
-                fontFamily: '"VT323", monospace', fontSize: '24px', color: '#6a8aaa'
+            const txt = this.add.text(640, 380, 'No hay delitos registrados para este día.', {
+                fontFamily: '"VT323", monospace',
+                fontSize: '28px',
+                color: '#6a8aaa'
             });
             txt.setOrigin(0.5).setDepth(110);
             this.elementosContenidoModal.push(txt);
             return;
         }
 
-        // Contador
+        if (filtrarDia !== null && filtrarDia !== undefined) {
+            this.tituloModal.setText(`Delitos encontrados - Día ${filtrarDia}`);
+        } else {
+            this.tituloModal.setText('Delitos encontrados');
+        }
+
         const n = lista.length;
-        const contTxt = this.add.text(640, 234,
+        const contTxt = this.add.text(
+            640,
+            276,
             `${n} delito${n !== 1 ? 's' : ''} registrado${n !== 1 ? 's' : ''}`, {
-            fontFamily: '"VT323", monospace', fontSize: '18px', color: '#cc8888'
-        });
+            fontFamily: '"VT323", monospace',
+            fontSize: '28px',
+            color: '#f0a9a9',
+            stroke: '#09111f',
+            strokeThickness: 3
+        }
+        );
         contTxt.setOrigin(0.5).setDepth(110);
         this.elementosContenidoModal.push(contTxt);
 
-        const sep = this.add.rectangle(640, 247, 760, 1, 0x5a2a2a, 0.7);
+        const subtitulo = this.add.text(
+            640,
+            308,
+            soloLectura
+                ? `Mostrando únicamente los delitos del Día ${filtrarDia}`
+                : `Mostrando únicamente los delitos del Día ${this.diaActual}`,
+            {
+                fontFamily: '"VT323", monospace',
+                fontSize: '22px',
+                color: '#dce8ff',
+                stroke: '#09111f',
+                strokeThickness: 2
+            }
+        );
+        subtitulo.setOrigin(0.5).setDepth(110);
+        this.elementosContenidoModal.push(subtitulo);
+
+        const sep = this.add.rectangle(640, 336, 1020, 2, 0x7d3943, 0.9);
         sep.setDepth(108);
         this.elementosContenidoModal.push(sep);
 
-        const maxVisible = 4;
-        const rowH   = 62;
-        const startY = 272;
+        const scrollHeight = soloLectura ? 250 : 220;
+        this._crearAreaScrollable(110, 356, 980, scrollHeight);
 
-        lista.slice(0, maxVisible).forEach((pj, i) => {
-            const rowY = startY + i * rowH;
-
-            const linea = this.add.rectangle(640, rowY - 28, 760, 1, 0x3a1a1a, 0.6);
-            linea.setDepth(108);
-            this.elementosContenidoModal.push(linea);
-
-            // Marco de foto (igual estilo que buscador, en rojo)
-            const marco = this.add.rectangle(272, rowY, 54, 54, 0x2a0a0a, 1);
-            marco.setDepth(108).setStrokeStyle(2, 0xaa4444, 1);
-            this.elementosContenidoModal.push(marco);
-
-            const fn  = pj.nombre.split(' ')[0].toLowerCase();
-            const key = `pj_${fn}`;
-            if (this.textures.exists(key)) {
-                const foto = this.add.image(272, rowY, key).setDisplaySize(50, 50);
-                foto.setDepth(109).setTint(0xffaaaa);
-                this.elementosContenidoModal.push(foto);
-            } else {
-                const placeholderBg = this.add.rectangle(272, rowY, 50, 50, 0x3a1010, 1);
-                placeholderBg.setDepth(109);
-                this.elementosContenidoModal.push(placeholderBg);
-                const inicialTxt = this.add.text(272, rowY, pj.nombre.charAt(0).toUpperCase(), {
-                    fontFamily: '"VT323", monospace', fontSize: '30px', color: '#cf8a8a'
-                });
-                inicialTxt.setOrigin(0.5).setDepth(110);
-                this.elementosContenidoModal.push(inicialTxt);
-            }
-
-            // Badge DELITO bajo la foto
-            const badge = this.add.rectangle(272, rowY + 33, 54, 14, 0xaa2222, 1);
-            badge.setDepth(110);
-            this.elementosContenidoModal.push(badge);
-            const badgeTxt = this.add.text(272, rowY + 33, 'DELITO', {
-                fontFamily: '"VT323", monospace', fontSize: '11px', color: '#ffffff'
-            });
-            badgeTxt.setOrigin(0.5).setDepth(111);
-            this.elementosContenidoModal.push(badgeTxt);
-
-            // Nombre + día
-            const nomTxt = this.add.text(308, rowY - 14, `${pj.nombre}  (Día ${pj.dia})`, {
-                fontFamily: '"VT323", monospace', fontSize: '19px', color: '#ffbbbb'
-            });
-            nomTxt.setOrigin(0, 0.5).setDepth(109);
-            this.elementosContenidoModal.push(nomTxt);
-
-            // Situación (misma info que en el buscador)
-            const caso = pj.textoCaso.length > 72 ? pj.textoCaso.substring(0, 72) + '…' : pj.textoCaso;
-            const casoTxt = this.add.text(308, rowY + 1, caso, {
-                fontFamily: '"VT323", monospace', fontSize: '13px', color: '#7a9abf'
-            });
-            casoTxt.setOrigin(0, 0.5).setDepth(109);
-            this.elementosContenidoModal.push(casoTxt);
-
-            // Cargo
-            const cargoNombre = (pj.sancion && pj.sancion !== 'NO TIENE')
-                ? pj.sancion.nombre
-                : 'Pendiente';
-            const sanTxt = this.add.text(308, rowY + 16, `Cargo: ${cargoNombre}`, {
-                fontFamily: '"VT323", monospace', fontSize: '13px', color: '#cc7777'
-            });
-            sanTxt.setOrigin(0, 0.5).setDepth(109);
-            this.elementosContenidoModal.push(sanTxt);
+        let currentY = 370;
+        lista.forEach(pj => {
+            currentY = this._crearTarjetaEncontrado(pj, currentY, soloLectura);
         });
 
-        if (lista.length > maxVisible) {
-            const masInfo = this.add.text(640, startY + maxVisible * rowH + 10,
-                `... y ${lista.length - maxVisible} más`, {
-                fontFamily: '"VT323", monospace', fontSize: '16px', color: '#6a8aaa'
+        this._finalizarAreaScrollable(currentY + 12, offsetAnterior);
+
+        // SOLO mostrar botón confirmar cuando sea la vista editable del día actual
+        if (!soloLectura) {
+            const btnBg = this.add.rectangle(640, 612, 340, 56, 0x345593, 1);
+            btnBg.setDepth(110).setStrokeStyle(2, 0xb5d0ff, 1);
+            this.elementosContenidoModal.push(btnBg);
+
+            const btnTxt = this.add.text(640, 612, 'Confirmar sanciones', {
+                fontFamily: '"VT323", monospace',
+                fontSize: '26px',
+                color: '#eef5ff'
+            }).setOrigin(0.5).setDepth(111);
+            this.elementosContenidoModal.push(btnTxt);
+
+            const btnZone = this.add.zone(640, 612, 340, 56)
+                .setDepth(112)
+                .setInteractive({ cursor: 'pointer' });
+
+            btnZone.on('pointerover', () => btnBg.setFillStyle(0x4168b0, 1));
+            btnZone.on('pointerout', () => btnBg.setFillStyle(0x345593, 1));
+            btnZone.on('pointerdown', () => {
+                this.reproducirClick();
+                this._confirmarSanciones(lista, filtrarDia);
             });
-            masInfo.setOrigin(0.5).setDepth(110);
-            this.elementosContenidoModal.push(masInfo);
+
+            this.elementosContenidoModal.push(btnZone);
         }
     }
+    _crearTarjetaEncontrado(pj, topY, soloLectura = false) {
+        const container = this.scrollState.container;
+        const sancionAsignada = this._obtenerSancionAsignada(pj);
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  MANUAL DE DELITOS — sanciones del día actual
-    // ─────────────────────────────────────────────────────────────────────────
+        const textStyle = {
+            fontFamily: '"VT323", monospace',
+            fontSize: '21px',
+            color: '#dbe6ff',
+            wordWrap: { width: 390 },
+            lineSpacing: 5
+        };
+
+        const medidor = this.add.text(-3000, -3000, pj.textoCaso, textStyle);
+        const caseHeight = medidor.height;
+        medidor.destroy();
+
+        const cardHeight = Math.max(132, caseHeight + 54);
+        const centerY = topY + cardHeight / 2;
+
+        const filaBg = this.add.rectangle(600, centerY, 960, cardHeight, 0x160c18, 0.72);
+        filaBg.setStrokeStyle(2, 0x6a2d3a, 1);
+
+        const marco = this.add.rectangle(150, centerY, 82, 82, 0x351015, 1);
+        marco.setStrokeStyle(2, 0xd85b68, 1);
+
+        container.add([filaBg, marco]);
+
+        const key = this._obtenerClaveAvatar(pj);
+        if (this.textures.exists(key)) {
+            const foto = this.add.image(150, centerY, key).setDisplaySize(74, 74);
+            container.add(foto);
+        } else {
+            const placeholderBg = this.add.rectangle(150, centerY, 74, 74, 0x54202a, 1);
+            const inicialTxt = this.add.text(150, centerY, pj.nombre.charAt(0).toUpperCase(), {
+                fontFamily: '"VT323", monospace',
+                fontSize: '34px',
+                color: '#ffffff'
+            }).setOrigin(0.5);
+            container.add([placeholderBg, inicialTxt]);
+        }
+
+        const badge = this.add.rectangle(150, centerY + 38, 70, 18, 0xb12738, 1);
+        const badgeTxt = this.add.text(150, centerY + 38, 'DELITO', {
+            fontFamily: '"VT323", monospace',
+            fontSize: '12px',
+            color: '#ffffff'
+        }).setOrigin(0.5);
+
+        container.add([badge, badgeTxt]);
+
+        const nomTxt = this.add.text(210, topY + 14, `${pj.nombre.trim()}  (Día ${pj.dia})`, {
+            fontFamily: '"VT323", monospace',
+            fontSize: '30px',
+            color: '#ffb4bc'
+        });
+
+        const casoTxt = this.add.text(210, topY + 54, pj.textoCaso, textStyle);
+        container.add([nomTxt, casoTxt]);
+
+        const panelX = 850;
+        const panelW = 250;
+        const panelH = 66;
+
+        const labelTxt = this.add.text(panelX, topY + 18, soloLectura ? 'Cargo asignado' : 'Asignar cargo', {
+            fontFamily: '"VT323", monospace',
+            fontSize: '20px',
+            color: '#b8d0ff'
+        }).setOrigin(0.5, 0);
+
+        container.add(labelTxt);
+
+        const cargoNombre = sancionAsignada ? sancionAsignada.nombre : 'Pendiente';
+
+        const selectBg = this.add.rectangle(panelX, centerY + 12, panelW, panelH, 0x203559, 1);
+        selectBg.setStrokeStyle(2, soloLectura ? 0x6e8ec5 : 0x7fa6eb, 1);
+
+        const selectTxt = this.add.text(panelX, centerY + 12, cargoNombre, {
+            fontFamily: '"VT323", monospace',
+            fontSize: cargoNombre.length > 24 ? '18px' : '22px',
+            color: cargoNombre === 'Pendiente' ? '#ffb2ba' : '#fff0f0',
+            align: 'center',
+            wordWrap: { width: 182 }
+        }).setOrigin(0.5);
+
+        container.add([selectBg, selectTxt]);
+
+        if (!soloLectura) {
+            const arrow = this.add.text(panelX + 104, centerY + 12, '▾', {
+                fontFamily: '"VT323", monospace',
+                fontSize: '20px',
+                color: '#eef5ff'
+            }).setOrigin(0.5);
+
+            const zSelect = this.add.zone(panelX, centerY + 12, panelW, panelH)
+                .setInteractive({ cursor: 'pointer' });
+
+            zSelect.on('pointerover', () => {
+                selectBg.setFillStyle(0x29456f, 1);
+            });
+
+            zSelect.on('pointerout', () => {
+                selectBg.setFillStyle(0x203559, 1);
+            });
+
+            zSelect.on('pointerdown', () => {
+                this.reproducirClick();
+                this._abrirSelectorSancionesModal(pj, this.diaActual);
+            });
+
+            container.add([arrow, zSelect]);
+        }
+
+        return topY + cardHeight + 18;
+    }
+
+    _abrirSelectorSancionesModal(pj, filtrarDia) {
+        this._cerrarSelectorSancionesModal();
+
+        const opciones = Sanciones[pj.dia] || [];
+        const seleccionActual = this._obtenerSancionAsignada(pj);
+
+        const filasTotales = opciones.length + 2;
+        const panelHeight = Math.max(360, 170 + filasTotales * 62);
+
+        const cx = 640;
+        const cy = 360;
+
+        const closeZone = this.add.zone(640, 360, 1280, 720).setDepth(218).setInteractive();
+        closeZone.on('pointerdown', () => {
+            this._cerrarSelectorSancionesModal();
+        });
+
+        const shadow = this.add.rectangle(cx, cy, 1280, 720, 0x000000, 0.45).setDepth(219);
+
+        const bg = this.add.rectangle(cx, cy, 860, panelHeight, 0x07142d, 0.985).setDepth(220);
+        bg.setStrokeStyle(3, 0x6ea1ef, 1);
+
+        const titleBar = this.add.rectangle(cx, cy - panelHeight / 2 + 46, 790, 58, 0x3b5794, 1).setDepth(221);
+        titleBar.setStrokeStyle(2, 0xc4dbff, 1);
+
+        const title = this.add.text(cx, cy - panelHeight / 2 + 46, `Seleccionar sanción - ${pj.nombre}`, {
+            fontFamily: '"VT323", monospace',
+            fontSize: '30px',
+            color: '#eef6ff'
+        }).setOrigin(0.5).setDepth(222);
+
+        const subt = this.add.text(cx, cy - panelHeight / 2 + 86, 'Elige el cargo que quieres asignar a este personaje', {
+            fontFamily: '"VT323", monospace',
+            fontSize: '18px',
+            color: '#b9d3ff'
+        }).setOrigin(0.5).setDepth(222);
+
+        this._sancionesModalElements = [closeZone, shadow, bg, titleBar, title, subt];
+
+        const startY = cy - panelHeight / 2 + 150;
+        const btnW = 680;
+        const btnH = 50;
+        const gap = 60;
+
+        opciones.forEach((sancion, index) => {
+            const y = startY + index * gap;
+            const activa = seleccionActual && seleccionActual.nombre === sancion.nombre;
+
+            const optBg = this.add.rectangle(cx, y, btnW, btnH, activa ? 0x4b6ea8 : 0x233e67, 1).setDepth(221);
+            optBg.setStrokeStyle(2, activa ? 0xe3efff : 0x597fb9, 1);
+
+            const optTxt = this.add.text(cx, y, sancion.nombre, {
+                fontFamily: '"VT323", monospace',
+                fontSize: '24px',
+                color: '#eef5ff'
+            }).setOrigin(0.5).setDepth(222);
+
+            const optZone = this.add.zone(cx, y, btnW, btnH).setDepth(223).setInteractive({ cursor: 'pointer' });
+
+            optZone.on('pointerover', () => {
+                optBg.setFillStyle(0x335786, 1);
+            });
+
+            optZone.on('pointerout', () => {
+                optBg.setFillStyle(activa ? 0x4b6ea8 : 0x233e67, 1);
+            });
+
+            optZone.on('pointerdown', () => {
+                this.reproducirClick();
+                this._asignarSancionTemporal(pj, sancion);
+                this._cerrarSelectorSancionesModal();
+                this.mostrarContenidoEncontrados(filtrarDia);
+            });
+
+            this._sancionesModalElements.push(optBg, optTxt, optZone);
+        });
+
+        const clearY = startY + opciones.length * gap;
+
+        const clearBg = this.add.rectangle(cx, clearY, btnW, 46, 0x5d3d31, 1).setDepth(221);
+        clearBg.setStrokeStyle(2, 0xa97e68, 1);
+
+        const clearTxt = this.add.text(cx, clearY, 'Quitar sanción (Pendiente)', {
+            fontFamily: '"VT323", monospace',
+            fontSize: '22px',
+            color: '#ffe8dc'
+        }).setOrigin(0.5).setDepth(222);
+
+        const clearZone = this.add.zone(cx, clearY, btnW, 46).setDepth(223).setInteractive({ cursor: 'pointer' });
+
+        clearZone.on('pointerover', () => {
+            clearBg.setFillStyle(0x724b3c, 1);
+        });
+
+        clearZone.on('pointerout', () => {
+            clearBg.setFillStyle(0x5d3d31, 1);
+        });
+
+        clearZone.on('pointerdown', () => {
+            this.reproducirClick();
+            this._asignarSancionTemporal(pj, null);
+            this._cerrarSelectorSancionesModal();
+            this.mostrarContenidoEncontrados(filtrarDia);
+        });
+
+        const cancelY = clearY + 58;
+
+        const cancelBg = this.add.rectangle(cx, cancelY, 260, 42, 0x2d3a5c, 1).setDepth(221);
+        cancelBg.setStrokeStyle(2, 0x7f9ccc, 1);
+
+        const cancelTxt = this.add.text(cx, cancelY, 'Cancelar', {
+            fontFamily: '"VT323", monospace',
+            fontSize: '22px',
+            color: '#eef5ff'
+        }).setOrigin(0.5).setDepth(222);
+
+        const cancelZone = this.add.zone(cx, cancelY, 260, 42).setDepth(223).setInteractive({ cursor: 'pointer' });
+        cancelZone.on('pointerover', () => {
+            cancelBg.setFillStyle(0x394c77, 1);
+        });
+        cancelZone.on('pointerout', () => {
+            cancelBg.setFillStyle(0x2d3a5c, 1);
+        });
+        cancelZone.on('pointerdown', () => {
+            this.reproducirClick();
+            this._cerrarSelectorSancionesModal();
+        });
+
+        this._sancionesModalElements.push(
+            clearBg, clearTxt, clearZone,
+            cancelBg, cancelTxt, cancelZone
+        );
+    }
+
+    _confirmarSanciones(lista, filtrarDia) {
+        if (!Array.isArray(lista) || !lista.length) return;
+
+        let pendientes = 0;
+        lista.forEach(pj => {
+            if (!this._obtenerSancionAsignada(pj)) {
+                pendientes++;
+            }
+        });
+
+        if (pendientes > 0) {
+            this._mostrarAvisoTemporal(
+                `Faltan ${pendientes} cargo${pendientes !== 1 ? 's' : ''} por asignar`,
+                0x4a2a2a,
+                0xc97a7a
+            );
+            return;
+        }
+
+        this._mostrarAvisoTemporal(
+            'Sanciones guardadas correctamente',
+            0x173250,
+            0x4a7bd0
+        );
+
+        this.time.delayedCall(450, () => {
+            this.mostrarContenidoEncontrados(filtrarDia);
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Manual
+    // ─────────────────────────────────────────────────────────
     mostrarContenidoManual() {
         this.limpiarContenidoModal();
 
         const sancionesDia = Sanciones[this.diaActual];
-        if (!sancionesDia) {
+        if (!sancionesDia || !sancionesDia.length) {
             const txt = this.add.text(640, 380, 'Sin manual para este día.', {
-                fontFamily: '"VT323", monospace', fontSize: '22px', color: '#6a8aaa'
+                fontFamily: '"VT323", monospace',
+                fontSize: '28px',
+                color: '#6a8aaa'
             });
             txt.setOrigin(0.5).setDepth(110);
             this.elementosContenidoModal.push(txt);
             return;
         }
 
-        let y = 242;
-        sancionesDia.forEach((s, idx) => {
-            if (y > 510) return;
-
-            const tag    = idx === 0 ? '[Principal]' : '[Secundaria]';
-            const tagCol = idx === 0 ? '#ffdd88'     : '#99bbdd';
-
-            const tagTxt = this.add.text(262, y, tag, {
-                fontFamily: '"VT323", monospace', fontSize: '15px', color: tagCol
-            });
-            tagTxt.setOrigin(0, 0.5).setDepth(110);
-            this.elementosContenidoModal.push(tagTxt);
-            y += 20;
-
-            const nomTxt = this.add.text(262, y, s.nombre, {
-                fontFamily: '"VT323", monospace', fontSize: '21px', color: '#ffffff'
-            });
-            nomTxt.setOrigin(0, 0.5).setDepth(110);
-            this.elementosContenidoModal.push(nomTxt);
-            y += 23;
-
-            const descTxt = this.add.text(262, y, s.descripcion, {
-                fontFamily: '"VT323", monospace', fontSize: '13px', color: '#8aaabb',
-                wordWrap: { width: 720 }
-            });
-            descTxt.setOrigin(0, 0).setDepth(110);
-            this.elementosContenidoModal.push(descTxt);
-            y += descTxt.height + 16;
+        const subtitulo = this.add.text(640, 292, 'Consulta las sanciones legales correspondientes a este día', {
+            fontFamily: '"VT323", monospace',
+            fontSize: '24px',
+            color: '#dce8ff',
+            stroke: '#09111f',
+            strokeThickness: 3
         });
-    }
+        subtitulo.setOrigin(0.5).setDepth(110);
 
-    // ─── Genera texturas procedurales para personajes sin PNG ───────────────
+        const linea1 = this.add.rectangle(640, 326, 1020, 2, 0x4d7ad0, 0.95);
+        linea1.setDepth(108);
+
+        this.elementosContenidoModal.push(subtitulo, linea1);
+
+        // Área scroll más abajo para que no se monte con el subtítulo
+        this._crearAreaScrollable(110, 348, 980, 252);
+
+        let currentY = 366;
+        sancionesDia.forEach((s, idx) => {
+            currentY = this._crearTarjetaManual(s, idx, currentY);
+        });
+
+        // Siempre iniciar arriba
+        this._finalizarAreaScrollable(currentY + 20, 0);
+    }
+    _crearTarjetaManual(s, idx, topY) {
+        const container = this.scrollState.container;
+
+        const labelTag = idx === 0 ? '[Principal]' : '[Secundaria]';
+
+        const estiloTexto = {
+            fontFamily: '"VT323", monospace',
+            fontSize: '20px',
+            color: '#d7e6ff',
+            wordWrap: { width: 850 },
+            lineSpacing: 6
+        };
+
+        const estiloEjemplo = {
+            fontFamily: '"VT323", monospace',
+            fontSize: '20px',
+            color: '#d8f3d2',
+            wordWrap: { width: 850 },
+            lineSpacing: 6,
+            fontStyle: 'italic'
+        };
+
+        const estiloLegal = {
+            fontFamily: '"VT323", monospace',
+            fontSize: '19px',
+            color: '#d7e6ff',
+            wordWrap: { width: 850 },
+            lineSpacing: 6
+        };
+
+        // Medidas reales de texto para calcular una altura correcta
+        const m1 = this.add.text(-3000, -3000, s.descripcion, estiloTexto);
+        const m2 = this.add.text(-3000, -3000, s.consecuencia, estiloTexto);
+        const m3 = this.add.text(-3000, -3000, s.ejemplo, estiloEjemplo);
+        const m4 = this.add.text(-3000, -3000, s.queSignifica, estiloLegal);
+
+        const h1 = m1.height;
+        const h2 = m2.height;
+        const h3 = m3.height;
+        const h4 = m4.height;
+
+        m1.destroy();
+        m2.destroy();
+        m3.destroy();
+        m4.destroy();
+
+        // Layout vertical exacto
+        const yTag = topY + 20;
+        const yTitulo = topY + 58;
+        const yLinea = topY + 112;
+
+        const yLabel1 = topY + 132;
+        const yTxt1 = yLabel1 + 32;
+
+        const yLabel2 = yTxt1 + h1 + 22;
+        const yTxt2 = yLabel2 + 32;
+
+        const yLabel3 = yTxt2 + h2 + 22;
+        const yTxt3 = yLabel3 + 32;
+
+        const yLabel4 = yTxt3 + h3 + 22;
+        const yTxt4 = yLabel4 + 32;
+
+        const bottomPadding = 30;
+        const cardHeight = (yTxt4 + h4 + bottomPadding) - topY;
+        const centerY = topY + cardHeight / 2;
+
+        const bg = this.add.rectangle(600, centerY, 960, cardHeight, 0x0b1736, 0.82);
+        bg.setStrokeStyle(2, 0x5078ca, 1);
+        container.add(bg);
+
+        const tagTxt = this.add.text(130, yTag, labelTag, {
+            fontFamily: '"VT323", monospace',
+            fontSize: '22px',
+            color: idx === 0 ? '#ffd98a' : '#9fc4ff'
+        });
+
+        const nomTxt = this.add.text(130, yTitulo, s.nombre, {
+            fontFamily: '"VT323", monospace',
+            fontSize: '36px',
+            color: '#ffffff',
+            stroke: '#09111f',
+            strokeThickness: 4
+        });
+
+        const lineaNom = this.add.rectangle(350, yLinea, 440, 2, 0x5e88de, 1);
+
+        const label1 = this.add.text(130, yLabel1, 'Descripción:', {
+            fontFamily: '"VT323", monospace',
+            fontSize: '24px',
+            color: '#8fc0ff'
+        });
+
+        const txt1 = this.add.text(130, yTxt1, s.descripcion, estiloTexto);
+
+        const label2 = this.add.text(130, yLabel2, 'Consecuencia:', {
+            fontFamily: '"VT323", monospace',
+            fontSize: '24px',
+            color: '#ffb184'
+        });
+
+        const txt2 = this.add.text(130, yTxt2, s.consecuencia, estiloTexto);
+
+        const label3 = this.add.text(130, yLabel3, 'Ejemplo:', {
+            fontFamily: '"VT323", monospace',
+            fontSize: '24px',
+            color: '#9fe39f'
+        });
+
+        const txt3 = this.add.text(130, yTxt3, s.ejemplo, estiloEjemplo);
+
+        const label4 = this.add.text(130, yLabel4, '¿Qué dice la ley?', {
+            fontFamily: '"VT323", monospace',
+            fontSize: '24px',
+            color: '#d4b8ff'
+        });
+
+        const txt4 = this.add.text(130, yTxt4, s.queSignifica, estiloLegal);
+
+        container.add([
+            tagTxt,
+            nomTxt,
+            lineaNom,
+            label1,
+            txt1,
+            label2,
+            txt2,
+            label3,
+            txt3,
+            label4,
+            txt4
+        ]);
+
+        return topY + cardHeight + 28;
+    }
+    // ─────────────────────────────────────────────────────────
+    // Utilidades visuales
+    // ─────────────────────────────────────────────────────────
     _generarAvataresFaltantes() {
         const COLORES = [
             0x4a90d9, 0xe05c5c, 0x5cb85c, 0xf0ad4e, 0x9b59b6,
             0x1abc9c, 0xe67e22, 0x2980b9, 0xc0392b, 0x27ae60
         ];
 
-        (Dias[this.diaActual] || []).forEach((pj, idx) => {
-            const nombre = pj.nombre || '?';
-            const fn     = nombre.toLowerCase().replace(/\s+/g, '_');
-            const key    = `pj_${fn}`;
+        Object.values(Dias).flat().forEach((pj, idx) => {
+            if (!pj || !pj.nombre) return;
 
-            if (this.textures.exists(key)) return; // ya cargado (PNG real)
+            const key = this._obtenerClaveAvatar(pj);
+            if (this.textures.exists(key)) return;
 
-            const SIZE   = 64;
-            const rt     = this.add.renderTexture(0, 0, SIZE, SIZE);
-            const g      = this.add.graphics();
-            const color  = COLORES[idx % COLORES.length];
+            const SIZE = 64;
+            const rt = this.add.renderTexture(0, 0, SIZE, SIZE);
+            const g = this.add.graphics();
+            const color = COLORES[idx % COLORES.length];
 
-            // Fondo circular
             g.fillStyle(color, 1);
             g.fillCircle(SIZE / 2, SIZE / 2, SIZE / 2);
             rt.draw(g, 0, 0);
             g.destroy();
 
-            // Inicial
-            const inicial = nombre.charAt(0).toUpperCase();
+            const inicial = pj.nombre.charAt(0).toUpperCase();
             const txt = this.add.text(SIZE / 2, SIZE / 2, inicial, {
                 fontFamily: 'Arial, sans-serif',
                 fontSize: '28px',
                 fontStyle: 'bold',
                 color: '#ffffff'
             }).setOrigin(0.5, 0.5);
+
             rt.draw(txt, 0, 0);
             txt.destroy();
 
-            // Guardar como textura reutilizable y limpiar el RenderTexture del display
             rt.saveTexture(key);
             rt.destroy();
         });
