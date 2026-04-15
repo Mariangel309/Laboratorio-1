@@ -190,23 +190,23 @@ const Luisa = new NodoB(5, 'Luisa', true,
 
 const Mia = new NodoB(5, 'Mia', true,
     '"[cuenta sin historial previo. únicos mensajes: comentarios ofensivos desde perfil que usa la imagen de la víctima]" /// Det. Alex: perfil sin red de contactos previa. Dispositivo coincidente con otro perfil del caso.',
-    -13, 4, null, true, -7, 'D16');
+    -13, 4, Sanciones[4][0], true, -7, 'D16');
 
 const Nico = new NodoB(5, 'Nico', true,
     '"[perfil con foto genérica. publicaciones exclusivamente en hilos relacionados con la víctima]" /// Det. Alex: sin actividad fuera del caso. Dispositivo coincidente con otro perfil del caso.',
-    -14, 4, null, true, -4, 'D16');
+    -14, 4, Sanciones[4][0], true, -4, 'D16');
 
 const Nora = new NodoB(5, 'Nora', true,
     '"[cuenta creada recientemente. comentarios copiados y pegados en múltiples publicaciones de la víctima]" /// Det. Alex: comportamiento automatizado o coordinado. Dispositivo coincidente con otro perfil del caso.',
-    -15, 4, null, true, -2, 'D17');
+    -15, 4, Sanciones[4][1], true, -2, 'D17');
 
 const Oscar = new NodoB(5, 'Oscar', true,
     '"[sin foto de perfil. todos los mensajes enviados en el mismo rango horario que otro perfil del caso]" /// Det. Alex: coincidencia de horarios con perfil relacionado. Dispositivo coincidente con otro perfil del caso.',
-    -16, 4, null, true, 1, 'D17');
+    -16, 4, Sanciones[4][1], true, 1, 'D17');
 
 const Paula = new NodoB(5, 'Paula', true,
     '"[perfil con nombre genérico. único contenido: reenvío de material del caso hacia grupos externos]" /// Det. Alex: amplificación fuera del entorno original. Dispositivo coincidente con otro perfil del caso.',
-    -17, 4, null, true, 7, 'D18');
+    -17, 4, Sanciones[4][2], true, 7, 'D18');
 
 // =========================================================
 //  DÍA 5
@@ -233,23 +233,23 @@ const Sofia = new NodoB(5, 'Sofia', true,
 
 const Tomas = new NodoB(5, 'Tomas', true,
     '"[cuenta sin actividad previa. todos los mensajes en ráfagas de 10 en menos de 2 minutos]" /// Det. Alex: velocidad de envío inconsistente con uso humano individual. Dispositivo coincidente con otro perfil del caso.',
-    -33, 5, null, true, 26, 'D21');
+    -33, 5, Sanciones[5][2], true, 26, 'D21');
 
 const Tyler = new NodoB(5, 'Tyler', true,
     '"[perfil creado semanas antes del incidente. actividad exclusiva durante el período del caso]" /// Det. Alex: uso puntual y concentrado. Dispositivo coincidente con otro perfil del caso.',
-    -34, 5, null, true, 31, 'D21');
+    -34, 5, Sanciones[5][2], true, 31, 'D21');
 
 const Valen = new NodoB(5, 'Valen', true,
     '"[mensajes idénticos enviados desde este perfil y otro del caso en un intervalo de segundos]" /// Det. Alex: operación simultánea probable. Dispositivo coincidente con otro perfil del caso.',
-    -35, 5, null, true, 34, 'D22');
+    -35, 5, Sanciones[5][1], true, 34, 'D22');
 
 const Violeta = new NodoB(5, 'Violeta', true,
     '"[únicos comentarios: respuestas de apoyo a mensajes ofensivos de perfiles conocidos del caso]" /// Det. Alex: actividad de refuerzo coordinado. Dispositivo coincidente con otro perfil del caso.',
-    -36, 5, null, true, 36, 'D22');
+    -36, 5, Sanciones[5][2], true, 36, 'D22');
 
 const Zoe = new NodoB(5, 'Zoe', true,
     '"[perfil con información mínima. mensajes enviados exclusivamente hacia la víctima y su entorno]" /// Det. Alex: objetivo focalizado. Dispositivo coincidente con otro perfil del caso.',
-    -37, 5, null, true, 39, 'D23');
+    -37, 5, Sanciones[5][1], true, 39, 'D23');
 // =========================================================
 //  REFERENCIAS ABB
 // =========================================================

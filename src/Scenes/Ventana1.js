@@ -1078,34 +1078,30 @@ export class Ventana1 extends Phaser.Scene {
         this.tituloModal.setVisible(false);
         this.tituloModal.setAlpha(0);
 
-        this.cerrarModalBtn = this.add.image(640, 676, 'back');
+        this.cerrarModalBtn = this.add.text(640, 676, 'Regresar', {
+            fontFamily: '"VT323", monospace',
+            fontSize: '30px',
+            color: '#b5d0ff',
+            backgroundColor: '#0d1e3a',
+            padding: { x: 24, y: 10 }
+        });
+        this.cerrarModalBtn.setOrigin(0.5, 0.5);
         this.cerrarModalBtn.setDepth(103);
-        this.cerrarModalBtn.setScale(0.20);
         this.cerrarModalBtn.setVisible(false);
         this.cerrarModalBtn.setAlpha(0);
 
-        this.cerrarModalZone = this.add.zone(640, 676, 180, 52);
+        this.cerrarModalZone = this.add.zone(640, 676, 220, 52);
         this.cerrarModalZone.setDepth(104);
         this.cerrarModalZone.setVisible(false);
 
         this.cerrarModalZone.on('pointerover', () => {
             if (!this.modalAbierto) return;
-            this.tweens.killTweensOf(this.cerrarModalBtn);
-            this.tweens.add({
-                targets: this.cerrarModalBtn,
-                scale: 0.215,
-                duration: 120
-            });
+            this.cerrarModalBtn.setStyle({ color: '#ffffff', backgroundColor: '#1a3a6a' });
         });
 
         this.cerrarModalZone.on('pointerout', () => {
             if (!this.modalAbierto) return;
-            this.tweens.killTweensOf(this.cerrarModalBtn);
-            this.tweens.add({
-                targets: this.cerrarModalBtn,
-                scale: 0.20,
-                duration: 120
-            });
+            this.cerrarModalBtn.setStyle({ color: '#b5d0ff', backgroundColor: '#0d1e3a' });
         });
 
         this.cerrarModalZone.on('pointerdown', () => {
@@ -1119,6 +1115,11 @@ export class Ventana1 extends Phaser.Scene {
         }
 
         this.escHandler = () => {
+            if (this._arbolBVisible) {
+                this._cerrarArbolB();
+                return;
+            }
+
             if (this._sancionesModalElements && this._sancionesModalElements.length) {
                 this._cerrarSelectorSancionesModal();
                 return;
@@ -1694,71 +1695,132 @@ export class Ventana1 extends Phaser.Scene {
         const maskGraphics = this.make.graphics({ x: 0, y: 0, add: false });
         maskGraphics.fillStyle(0xffffff, 1);
         maskGraphics.fillRect(x, y, width, height);
-
         const mask = maskGraphics.createGeometryMask();
         container.setMask(mask);
 
-        const trackBg = this.add.rectangle(x + width + 20, y + height / 2, 10, height, 0x24407c, 1);
-        trackBg.setDepth(114).setStrokeStyle(2, 0x7ea8ff, 1);
+        // ── Scrollbar estilo Word ─────────────────────────────
+        const sbX    = x + width + 18;  // centro X de la barra
+        const sbW    = 15;              // ancho de la barra
+        const btnH   = 18;             // alto de los botones de flecha
+        const trackY = y + btnH;       // inicio de la pista (debajo del botón superior)
+        const trackH = height - btnH * 2; // alto de la pista entre botones
 
-        const knob = this.add.rectangle(x + width + 20, y + 40, 18, 88, 0xdce8ff, 1);
-        knob.setDepth(115).setStrokeStyle(2, 0xffffff, 1);
-        knob.setInteractive({ cursor: 'pointer' });
+        // Pista (fondo gris claro)
+        const trackBg = this.add.rectangle(sbX, y + height / 2, sbW, height, 0xf0f0f0, 1);
+        trackBg.setDepth(114).setStrokeStyle(1, 0xd4d4d4, 1);
 
-        const trackZone = this.add.zone(x + width + 20, y + height / 2, 28, height).setDepth(116).setInteractive({ cursor: 'pointer' });
+        // Botón flecha arriba
+        const btnUpBg = this.add.rectangle(sbX, y + btnH / 2, sbW, btnH, 0xe8e8e8, 1);
+        btnUpBg.setDepth(115).setStrokeStyle(1, 0xd4d4d4, 1);
+
+        const arrowUpGfx = this.add.graphics().setDepth(116);
+        const drawArrowUp = (color) => {
+            arrowUpGfx.clear();
+            arrowUpGfx.fillStyle(color, 1);
+            arrowUpGfx.fillTriangle(
+                sbX - 4, y + btnH / 2 + 3,
+                sbX + 4, y + btnH / 2 + 3,
+                sbX,     y + btnH / 2 - 3
+            );
+        };
+        drawArrowUp(0x555555);
+
+        const upZone = this.add.zone(sbX, y + btnH / 2, sbW + 8, btnH)
+            .setDepth(117).setInteractive({ cursor: 'pointer' });
+
+        // Botón flecha abajo
+        const btnDownBg = this.add.rectangle(sbX, y + height - btnH / 2, sbW, btnH, 0xe8e8e8, 1);
+        btnDownBg.setDepth(115).setStrokeStyle(1, 0xd4d4d4, 1);
+
+        const arrowDownGfx = this.add.graphics().setDepth(116);
+        const drawArrowDown = (color) => {
+            arrowDownGfx.clear();
+            arrowDownGfx.fillStyle(color, 1);
+            arrowDownGfx.fillTriangle(
+                sbX - 4, y + height - btnH / 2 - 3,
+                sbX + 4, y + height - btnH / 2 - 3,
+                sbX,     y + height - btnH / 2 + 3
+            );
+        };
+        drawArrowDown(0x555555);
+
+        const downZone = this.add.zone(sbX, y + height - btnH / 2, sbW + 8, btnH)
+            .setDepth(117).setInteractive({ cursor: 'pointer' });
+
+        // Pulgar (alto inicial proporcional)
+        const initKnobH = Math.max(20, Math.round(trackH * 0.4));
+        const knob = this.add.rectangle(sbX, trackY + initKnobH / 2, sbW - 2, initKnobH, 0xc0c0c0, 1);
+        knob.setDepth(116).setInteractive({ cursor: 'pointer' });
+
+        // Zona de la pista para saltar con clic
+        const trackZone = this.add.zone(sbX, trackY + trackH / 2, sbW + 8, trackH)
+            .setDepth(117).setInteractive({ cursor: 'pointer' });
 
         const state = {
-            x,
-            y,
-            width,
-            height,
-            container,
-            maskGraphics,
-            mask,
-            trackBg,
-            knob,
-            trackZone,
+            x, y, width, height,
+            container, maskGraphics, mask,
+            trackBg, knob, trackZone,
+            btnUpBg, btnDownBg, arrowUpGfx, arrowDownGfx, upZone, downZone,
+            drawArrowUp, drawArrowDown,
+            sbX, sbW, btnH, trackY, trackH,
             contentBottomY: y,
             offset: 0,
             maxScroll: 0,
-            knobHeight: 88,
+            knobHeight: initKnobH,
             dragging: false,
             dragOffsetY: 0,
             pointerMoveHandler: null,
             pointerUpHandler: null
         };
 
+        // Hover / active en el pulgar
+        knob.on('pointerover', () => { if (!state.dragging) knob.setFillStyle(0xa0a0a0, 1); });
+        knob.on('pointerout',  () => { if (!state.dragging) knob.setFillStyle(0xc0c0c0, 1); });
         knob.on('pointerdown', (pointer) => {
             if (state.maxScroll <= 0) return;
             state.dragging = true;
-            state.dragOffsetY = pointer.y - state.knob.y;
+            state.dragOffsetY = pointer.y - knob.y;
+            knob.setFillStyle(0x888888, 1);
         });
 
+        // Botones de flecha
+        upZone.on('pointerover',  () => { btnUpBg.setFillStyle(0xd8d8d8, 1); drawArrowUp(0x333333); });
+        upZone.on('pointerout',   () => { btnUpBg.setFillStyle(0xe8e8e8, 1); drawArrowUp(0x555555); });
+        upZone.on('pointerdown',  () => { this._desplazarScroll(state, -35); });
+
+        downZone.on('pointerover',  () => { btnDownBg.setFillStyle(0xd8d8d8, 1); drawArrowDown(0x333333); });
+        downZone.on('pointerout',   () => { btnDownBg.setFillStyle(0xe8e8e8, 1); drawArrowDown(0x555555); });
+        downZone.on('pointerdown',  () => { this._desplazarScroll(state, 35); });
+
+        // Clic en la pista → saltar a esa posición
         trackZone.on('pointerdown', (pointer) => {
             if (state.maxScroll <= 0) return;
-            const minY = state.y + state.knobHeight / 2;
-            const maxY = state.y + state.height - state.knobHeight / 2;
+            const minY = state.trackY + state.knobHeight / 2;
+            const maxY = state.trackY + state.trackH - state.knobHeight / 2;
             const yClamped = Phaser.Math.Clamp(pointer.y, minY, maxY);
-            const ratio = (yClamped - minY) / Math.max(1, (maxY - minY));
+            const ratio = (yClamped - minY) / Math.max(1, maxY - minY);
             this._setScrollFromRatio(state, ratio);
         });
 
+        // Arrastrar pulgar
         state.pointerMoveHandler = (pointer) => {
             if (!state.dragging || state.maxScroll <= 0) return;
-
-            const minY = state.y + state.knobHeight / 2;
-            const maxY = state.y + state.height - state.knobHeight / 2;
+            const minY = state.trackY + state.knobHeight / 2;
+            const maxY = state.trackY + state.trackH - state.knobHeight / 2;
             const targetY = Phaser.Math.Clamp(pointer.y - state.dragOffsetY, minY, maxY);
-            const ratio = (targetY - minY) / Math.max(1, (maxY - minY));
+            const ratio = (targetY - minY) / Math.max(1, maxY - minY);
             this._setScrollFromRatio(state, ratio);
         };
 
         state.pointerUpHandler = () => {
-            state.dragging = false;
+            if (state.dragging) {
+                state.dragging = false;
+                knob.setFillStyle(0xc0c0c0, 1);
+            }
         };
 
         this.input.on('pointermove', state.pointerMoveHandler);
-        this.input.on('pointerup', state.pointerUpHandler);
+        this.input.on('pointerup',   state.pointerUpHandler);
 
         if (this.wheelHandlerGlobal) {
             this.input.off('wheel', this.wheelHandlerGlobal);
@@ -1779,7 +1841,10 @@ export class Ventana1 extends Phaser.Scene {
         this.input.on('wheel', this.wheelHandlerGlobal);
 
         this.scrollState = state;
-        this.elementosContenidoModal.push(container, trackBg, knob, trackZone);
+        this.elementosContenidoModal.push(
+            container, trackBg, knob, trackZone,
+            btnUpBg, btnDownBg, arrowUpGfx, arrowDownGfx, upZone, downZone
+        );
         return state;
     }
 
@@ -1792,18 +1857,32 @@ export class Ventana1 extends Phaser.Scene {
         const contentHeight = Math.max(0, contentBottomY - state.y);
         state.maxScroll = Math.max(0, contentHeight - state.height);
 
+        // Actualizar alto del pulgar proporcional al contenido
+        if (state.trackH !== undefined) {
+            const visibleRatio = state.height / Math.max(state.height, contentHeight);
+            const newKnobH = Math.max(20, Math.round(state.trackH * visibleRatio));
+            state.knobHeight = newKnobH;
+            state.knob.setSize(state.sbW - 2, newKnobH);
+        }
+
+        const setAlphaScrollbar = (a) => {
+            state.trackBg.setAlpha(a);
+            state.knob.setAlpha(a);
+            if (state.btnUpBg)     state.btnUpBg.setAlpha(a);
+            if (state.btnDownBg)   state.btnDownBg.setAlpha(a);
+            if (state.arrowUpGfx)  state.arrowUpGfx.setAlpha(a);
+            if (state.arrowDownGfx) state.arrowDownGfx.setAlpha(a);
+        };
+
         if (state.maxScroll <= 0) {
             state.offset = 0;
             state.container.y = 0;
-            state.knob.y = state.y + state.knobHeight / 2;
-            state.trackBg.setAlpha(0.25);
-            state.knob.setAlpha(0.35);
+            state.knob.y = state.trackY + state.knobHeight / 2;
+            setAlphaScrollbar(0.35);
             return;
         }
 
-        state.trackBg.setAlpha(1);
-        state.knob.setAlpha(1);
-
+        setAlphaScrollbar(1);
         state.offset = Phaser.Math.Clamp(offsetAnterior, 0, state.maxScroll);
         state.container.y = -state.offset;
         this._actualizarScrollVisual(state);
@@ -1812,13 +1891,16 @@ export class Ventana1 extends Phaser.Scene {
     _actualizarScrollVisual(state) {
         if (!state) return;
 
+        const tY = state.trackY !== undefined ? state.trackY : state.y;
+        const tH = state.trackH !== undefined ? state.trackH : state.height;
+
         if (state.maxScroll <= 0) {
-            state.knob.y = state.y + state.knobHeight / 2;
+            state.knob.y = tY + state.knobHeight / 2;
             return;
         }
 
-        const minY = state.y + state.knobHeight / 2;
-        const maxY = state.y + state.height - state.knobHeight / 2;
+        const minY = tY + state.knobHeight / 2;
+        const maxY = tY + tH - state.knobHeight / 2;
         const ratio = state.offset / state.maxScroll;
         state.knob.y = Phaser.Math.Linear(minY, maxY, ratio);
     }
@@ -1846,13 +1928,18 @@ export class Ventana1 extends Phaser.Scene {
         const state = this.scrollState;
 
         if (state.pointerMoveHandler) this.input.off('pointermove', state.pointerMoveHandler);
-        if (state.pointerUpHandler) this.input.off('pointerup', state.pointerUpHandler);
+        if (state.pointerUpHandler)   this.input.off('pointerup',   state.pointerUpHandler);
 
-        if (state.trackZone && state.trackZone.destroy) state.trackZone.destroy();
-        if (state.knob && state.knob.destroy) state.knob.destroy();
-        if (state.trackBg && state.trackBg.destroy) state.trackBg.destroy();
-        if (state.container && state.container.destroy) state.container.destroy();
-        if (state.maskGraphics && state.maskGraphics.destroy) state.maskGraphics.destroy();
+        const elementes = [
+            'trackZone', 'upZone', 'downZone',
+            'knob', 'trackBg',
+            'btnUpBg', 'btnDownBg',
+            'arrowUpGfx', 'arrowDownGfx',
+            'container', 'maskGraphics'
+        ];
+        elementes.forEach(key => {
+            if (state[key] && state[key].destroy) state[key].destroy();
+        });
 
         this.scrollState = null;
     }
@@ -2098,6 +2185,33 @@ export class Ventana1 extends Phaser.Scene {
             });
 
             this.elementosContenidoModal.push(btnZone);
+        }
+
+        // Botón "Mapa Día X" — junto al botón Regresar, solo en vista de solo lectura desde Días
+        if (soloLectura && filtrarDia !== null && filtrarDia !== undefined) {
+            const btnMapaBg = this.add.rectangle(820, 676, 216, 48, 0x2a0505, 1);
+            btnMapaBg.setDepth(110).setStrokeStyle(2, 0xd43030, 1);
+            this.elementosContenidoModal.push(btnMapaBg);
+
+            const btnMapaTxt = this.add.text(820, 676, `Mapa Dia ${filtrarDia}`, {
+                fontFamily: '"VT323", monospace',
+                fontSize: '26px',
+                color: '#ff7070'
+            }).setOrigin(0.5).setDepth(111);
+            this.elementosContenidoModal.push(btnMapaTxt);
+
+            const btnMapaZone = this.add.zone(820, 676, 216, 48)
+                .setDepth(112)
+                .setInteractive({ cursor: 'pointer' });
+
+            btnMapaZone.on('pointerover', () => btnMapaBg.setFillStyle(0x4a0a0a, 1));
+            btnMapaZone.on('pointerout',  () => btnMapaBg.setFillStyle(0x2a0505, 1));
+            btnMapaZone.on('pointerdown', () => {
+                this.reproducirClick();
+                this._abrirVisualizacionArbolB(filtrarDia);
+            });
+
+            this.elementosContenidoModal.push(btnMapaZone);
         }
     }
     _crearTarjetaEncontrado(pj, topY, soloLectura = false) {
@@ -2596,5 +2710,387 @@ export class Ventana1 extends Phaser.Scene {
             rt.saveTexture(key);
             rt.destroy();
         });
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Visualización gráfica del Árbol B
+    // ─────────────────────────────────────────────────────────
+    _abrirVisualizacionArbolB(dia) {
+        if (this._arbolBVisible) return;
+        this._arbolBVisible = true;
+        this._arbolBElements = [];
+
+        const arbol = arbolDias[dia];
+        if (!arbol || !arbol.raiz) {
+            this._arbolBVisible = false;
+            return;
+        }
+
+        // ── Fondo oscuro ──
+        const fondo = this.add.rectangle(640, 360, 1280, 720, 0x000a1a, 0.97);
+        fondo.setDepth(200).setInteractive();
+        this._arbolBElements.push(fondo);
+
+        // ── Header ──
+        const headerBg = this.add.rectangle(640, 33, 1280, 66, 0x040d1e, 1);
+        headerBg.setDepth(201);
+        this._arbolBElements.push(headerBg);
+
+        const headerLine = this.add.rectangle(640, 66, 1280, 2, 0x1e3a70, 1);
+        headerLine.setDepth(201);
+        this._arbolBElements.push(headerLine);
+
+        const titulo = this.add.text(610, 39, 'MAPA DE DELITOS', {
+            fontFamily: '"VT323", monospace',
+            fontSize: '46px',
+            color: '#78b8ff',
+            stroke: '#000a1a',
+            strokeThickness: 4
+        }).setOrigin(0.5).setDepth(202);
+        this._arbolBElements.push(titulo);
+
+        // ── Botón volver (icono flecha) ──
+        const volverBg = this.add.rectangle(1218, 33, 100, 46, 0x0d1e3a, 1);
+        volverBg.setDepth(202).setStrokeStyle(2, 0x4a80c0, 1).setInteractive({ cursor: 'pointer' });
+        volverBg.on('pointerover', () => {
+            volverBg.setFillStyle(0x1a3a6a, 1);
+            volverArrow.setColor('#ffffff');
+        });
+        volverBg.on('pointerout', () => {
+            volverBg.setFillStyle(0x0d1e3a, 1);
+            volverArrow.setColor('#78b8ff');
+        });
+        volverBg.on('pointerdown', () => { this.reproducirClick(); this._cerrarArbolB(); });
+        this._arbolBElements.push(volverBg);
+
+        // Flecha dibujada con Graphics
+        const volverGfx = this.add.graphics().setDepth(204);
+        volverGfx.fillStyle(0x78b8ff, 1);
+        // Punta de la flecha (triángulo)
+        volverGfx.fillTriangle(1200, 33,  1212, 25,  1212, 41);
+        // Cuerpo de la flecha (rectángulo)
+        volverGfx.fillRect(1212, 29, 18, 8);
+        this._arbolBElements.push(volverGfx);
+
+        // Texto invisible para el hover (referencia para cambiar color)
+        const volverArrow = this.add.text(1218, 33, '', {}).setDepth(204);
+        // Zona interactiva encima de la flecha también
+        const volverZone = this.add.zone(1218, 33, 100, 46).setDepth(205).setInteractive({ cursor: 'pointer' });
+        volverZone.on('pointerover', () => {
+            volverBg.setFillStyle(0x1a3a6a, 1);
+            volverGfx.clear();
+            volverGfx.fillStyle(0xffffff, 1);
+            volverGfx.fillTriangle(1200, 33,  1212, 25,  1212, 41);
+            volverGfx.fillRect(1212, 29, 18, 8);
+        });
+        volverZone.on('pointerout', () => {
+            volverBg.setFillStyle(0x0d1e3a, 1);
+            volverGfx.clear();
+            volverGfx.fillStyle(0x78b8ff, 1);
+            volverGfx.fillTriangle(1200, 33,  1212, 25,  1212, 41);
+            volverGfx.fillRect(1212, 29, 18, 8);
+        });
+        volverZone.on('pointerdown', () => { this.reproducirClick(); this._cerrarArbolB(); });
+        this._arbolBElements.push(volverArrow, volverZone);
+
+        // ── Dibujar árbol ──
+        this._dibujarArbolBVisual(arbol.raiz);
+    }
+
+    _cerrarArbolB() {
+        if (!this._arbolBVisible) return;
+        this._arbolBVisible = false;
+        if (this._arbolBElements) {
+            this._arbolBElements.forEach(el => { try { if (el) el.destroy(); } catch (e) {} });
+            this._arbolBElements = [];
+        }
+    }
+
+    _dibujarArbolBVisual(raiz) {
+        // BFS para recolectar niveles
+        const niveles = [];
+        let cola = [raiz];
+        while (cola.length > 0) {
+            niveles.push([...cola]);
+            const siguiente = [];
+            for (const nodo of cola) {
+                if (nodo && !nodo.esHoja) {
+                    for (const hijo of nodo.hijos) {
+                        if (hijo) siguiente.push(hijo);
+                    }
+                }
+            }
+            cola = siguiente;
+        }
+
+        const numNiveles = niveles.length;
+
+        // Dimensiones fijas de cards y nodos
+        const KW = 88;                    // ancho de cada card de clave
+        const KH = 118;                   // alto de cada card de clave
+        const PH = 10;                    // padding horizontal del nodo
+        const PV = 8;                     // padding vertical del nodo
+        const KG = 4;                     // gap entre claves
+        const NH = PV * 2 + KH;          // alto total del nodo (134px)
+
+        const getNodeW = (n) => PH * 2 + n * KW + Math.max(0, n - 1) * KG;
+
+        // Posiciones Y por nivel
+        const topY  = 72;
+        const botY  = 652;
+        const areaH = botY - topY;
+        const step  = areaH / numNiveles;
+
+        const yPos = Array.from({ length: numNiveles },
+            (_, i) => topY + step * (i + 0.5));
+
+        // Posiciones X por nivel (distribución uniforme)
+        const margen = 75;
+        const CW     = 1280;
+        const posMap = new Map(); // nodo → {x, y}
+
+        niveles.forEach((nivel, ni) => {
+            const y = yPos[ni];
+            const n = nivel.length;
+
+            if (n === 1) {
+                posMap.set(nivel[0], { x: CW / 2, y });
+            } else {
+                const anchuraTotal = nivel.reduce((a, nd) => a + getNodeW(nd.claves.length), 0);
+                const espacioEntre = Math.max(40, (CW - 2 * margen - anchuraTotal) / (n - 1));
+                let xCursor = margen + getNodeW(nivel[0].claves.length) / 2;
+                nivel.forEach((nodo, idx) => {
+                    posMap.set(nodo, { x: xCursor, y });
+                    if (idx < n - 1) {
+                        xCursor += getNodeW(nodo.claves.length) / 2
+                                 + espacioEntre
+                                 + getNodeW(nivel[idx + 1].claves.length) / 2;
+                    }
+                });
+            }
+        });
+
+        // ── Dibujar líneas de conexión ──
+        const gfxGlow = this.add.graphics().setDepth(203);
+        const gfxLine = this.add.graphics().setDepth(204);
+        this._arbolBElements.push(gfxGlow, gfxLine);
+
+        niveles.forEach((nivel, ni) => {
+            if (ni === numNiveles - 1) return;
+            nivel.forEach(nodo => {
+                if (nodo.esHoja || !nodo.hijos.length) return;
+                const pos = posMap.get(nodo);
+                if (!pos) return;
+
+                const nw  = getNodeW(nodo.claves.length);
+                const numH = nodo.hijos.length;
+
+                nodo.hijos.forEach((hijo, hi) => {
+                    if (!hijo) return;
+                    const hijoPos = posMap.get(hijo);
+                    if (!hijoPos) return;
+
+                    const srcX = (pos.x - nw / 2) + nw * (hi + 0.5) / numH;
+                    const srcY = pos.y + NH / 2;
+                    const dstX = hijoPos.x;
+                    const dstY = hijoPos.y - NH / 2;
+
+                    // Halo
+                    gfxGlow.lineStyle(5, 0x1a3a7a, 0.25);
+                    gfxGlow.beginPath();
+                    gfxGlow.moveTo(srcX, srcY);
+                    gfxGlow.lineTo(dstX, dstY);
+                    gfxGlow.strokePath();
+
+                    // Línea
+                    gfxLine.lineStyle(2, 0x4a82d8, 0.9);
+                    gfxLine.beginPath();
+                    gfxLine.moveTo(srcX, srcY);
+                    gfxLine.lineTo(dstX, dstY);
+                    gfxLine.strokePath();
+
+                    // Flecha
+                    const ang  = Math.atan2(dstY - srcY, dstX - srcX);
+                    const aS   = 8;
+                    gfxLine.fillStyle(0x4a82d8, 0.9);
+                    gfxLine.fillTriangle(
+                        dstX, dstY,
+                        dstX - aS * Math.cos(ang - 0.42), dstY - aS * Math.sin(ang - 0.42),
+                        dstX - aS * Math.cos(ang + 0.42), dstY - aS * Math.sin(ang + 0.42)
+                    );
+                });
+            });
+        });
+
+        // ── Dibujar nodos ──
+        niveles.forEach((nivel, ni) => {
+            nivel.forEach(nodo => {
+                const pos = posMap.get(nodo);
+                if (!pos) return;
+                this._dibujarNodoArbolB(nodo, pos.x, pos.y, KW, KH, PH, PV, KG, NH, ni === 0);
+            });
+        });
+
+        // ── Leyenda ──
+        this._dibujarLeyendaArbolB();
+    }
+
+    _dibujarNodoArbolB(nodo, cx, cy, KW, KH, PH, PV, KG, NH, esRaiz) {
+        const n  = nodo.claves.length;
+        const nw = PH * 2 + n * KW + Math.max(0, n - 1) * KG;
+
+        // Fondo del nodo
+        const borderCol = esRaiz ? 0x78b8ff : 0x3a5a9e;
+        const nodoBg = this.add.rectangle(cx, cy, nw, NH, 0x050c1c, 1);
+        nodoBg.setDepth(205).setStrokeStyle(esRaiz ? 3 : 2, borderCol, 1);
+        this._arbolBElements.push(nodoBg);
+
+        // Etiqueta de nivel
+        const labelNivel = esRaiz ? '[ PAGINA RAIZ ]' : (nodo.esHoja ? '[ PAGINA ]' : '[ PAGINA INTERNA ]');
+        const labelCol   = esRaiz ? '#78b8ff' : (nodo.esHoja ? '#3abf7a' : '#8899cc');
+        const labelTxt = this.add.text(cx, cy - NH / 2 - 13, labelNivel, {
+            fontFamily: '"VT323", monospace',
+            fontSize: '16px',
+            color: labelCol
+        }).setOrigin(0.5).setDepth(206);
+        this._arbolBElements.push(labelTxt);
+
+        // Separadores verticales entre claves
+        const sepGfx = this.add.graphics().setDepth(206);
+        this._arbolBElements.push(sepGfx);
+        for (let i = 0; i < n - 1; i++) {
+            const sepX = cx - nw / 2 + PH + (i + 1) * KW + i * KG + KG / 2;
+            sepGfx.lineStyle(1, borderCol, 0.35);
+            sepGfx.beginPath();
+            sepGfx.moveTo(sepX, cy - NH / 2 + 6);
+            sepGfx.lineTo(sepX, cy + NH / 2 - 6);
+            sepGfx.strokePath();
+        }
+
+        // Dibujar cada clave
+        nodo.claves.forEach((pj, idx) => {
+            const keyX = cx - nw / 2 + PH + idx * (KW + KG) + KW / 2;
+            this._dibujarClaveArbolB(pj, keyX, cy, KW, KH);
+        });
+    }
+
+    _dibujarClaveArbolB(pj, cx, cy, KW, KH) {
+        // Categoría por rango
+        let borderCol, bgCol, badgeLabel;
+        const r = pj.rango;
+        if (r >= 1 && r <= 9) {
+            borderCol  = 0xd43030; bgCol = 0x200505; badgeLabel = 'PRINCIPAL';
+        } else if (r > 9) {
+            const esA  = (r % 10 === 1);
+            borderCol  = esA ? 0xd07030 : 0xd0a030;
+            bgCol      = esA ? 0x1e0a02  : 0x1e1302;
+            badgeLabel = esA ? 'COMPLICE A' : 'COMPLICE B';
+        } else {
+            borderCol  = 0x3090d4; bgCol = 0x021018; badgeLabel = 'SIN CARGO';
+        }
+
+        // Fondo del card
+        const cardBg = this.add.rectangle(cx, cy, KW - 4, KH - 4, bgCol, 1);
+        cardBg.setDepth(206).setStrokeStyle(2, borderCol, 1);
+        this._arbolBElements.push(cardBg);
+
+        // Foto del personaje
+        const PHOTO = 50;
+        const photoY = cy - KH / 2 + 8 + PHOTO / 2;  // cy - 26
+
+        const avatarKey = this._obtenerClaveAvatar(pj);
+        if (this.textures.exists(avatarKey)) {
+            const foto = this.add.image(cx, photoY, avatarKey).setDisplaySize(PHOTO, PHOTO);
+            foto.setDepth(208);
+            this._arbolBElements.push(foto);
+
+            // Aro circular alrededor de la foto
+            const aroGfx = this.add.graphics().setDepth(209);
+            aroGfx.lineStyle(2, borderCol, 1);
+            aroGfx.strokeCircle(cx, photoY, PHOTO / 2 + 2);
+            this._arbolBElements.push(aroGfx);
+        } else {
+            const phGfx = this.add.graphics().setDepth(207);
+            phGfx.fillStyle(borderCol, 0.25);
+            phGfx.fillCircle(cx, photoY, PHOTO / 2);
+            phGfx.lineStyle(2, borderCol, 0.8);
+            phGfx.strokeCircle(cx, photoY, PHOTO / 2);
+            const iniTxt = this.add.text(cx, photoY, pj.nombre.charAt(0).toUpperCase(), {
+                fontFamily: '"VT323", monospace',
+                fontSize: '26px',
+                color: '#ffffff'
+            }).setOrigin(0.5).setDepth(208);
+            this._arbolBElements.push(phGfx, iniTxt);
+        }
+
+        // Nombre
+        const nameY  = cy + 13;  // cy - KH/2 + 8 + 50 + 5 + 9
+        const rangoY = cy + 32;  // nameY + 11 + 2 + 8
+        const badgeY = cy + 49;  // rangoY + 8 + 2 + 7
+
+        const rangoColor = r >= 1 && r <= 9 ? '#ff8080' : (r > 9 ? '#ffb060' : '#70c8ff');
+
+        const nameTxt = this.add.text(cx, nameY, pj.nombre, {
+            fontFamily: '"VT323", monospace',
+            fontSize: '17px',
+            color: '#dce8ff'
+        }).setOrigin(0.5).setDepth(207);
+        this._arbolBElements.push(nameTxt);
+
+        const rangoTxt = this.add.text(cx, rangoY, `Rng: ${pj.rango}`, {
+            fontFamily: '"VT323", monospace',
+            fontSize: '15px',
+            color: rangoColor
+        }).setOrigin(0.5).setDepth(207);
+        this._arbolBElements.push(rangoTxt);
+
+        // Badge de categoría
+        const badgeBg = this.add.rectangle(cx, badgeY, KW - 8, 14, borderCol, 0.82);
+        badgeBg.setDepth(207);
+        const badgeTxt = this.add.text(cx, badgeY, badgeLabel, {
+            fontFamily: '"VT323", monospace',
+            fontSize: '11px',
+            color: '#ffffff'
+        }).setOrigin(0.5).setDepth(208);
+        this._arbolBElements.push(badgeBg, badgeTxt);
+    }
+
+    _dibujarLeyendaArbolB() {
+        // Barra inferior de leyenda
+        const legendBg = this.add.rectangle(640, 694, 1280, 52, 0x030910, 0.96);
+        legendBg.setDepth(204);
+        this._arbolBElements.push(legendBg);
+
+        const sepLeg = this.add.rectangle(640, 668, 1280, 2, 0x12233a, 1);
+        sepLeg.setDepth(204);
+        this._arbolBElements.push(sepLeg);
+
+        const items = [
+            { color: 0xd43030, label: 'Principal  (rango 1-9)' },
+            { color: 0xd07030, label: 'Complice A (rango X1)' },
+            { color: 0xd0a030, label: 'Complice B (rango X2)' },
+            { color: 0x3090d4, label: 'Sin cargo  (rango < 0)' }
+        ];
+
+        const startX = 105;
+        const y = 694;
+        items.forEach((item, idx) => {
+            const x = startX + idx * 252;
+            const dot = this.add.rectangle(x, y, 16, 16, item.color, 1);
+            dot.setDepth(205);
+            const txt = this.add.text(x + 12, y, item.label, {
+                fontFamily: '"VT323", monospace',
+                fontSize: '17px',
+                color: '#5a7a9a'
+            }).setOrigin(0, 0.5).setDepth(205);
+            this._arbolBElements.push(dot, txt);
+        });
+
+        const escTxt = this.add.text(1210, 694, 'Presiona ESC para cerrar', {
+            fontFamily: '"VT323", monospace',
+            fontSize: '17px',
+            color: '#233040'
+        }).setOrigin(1, 0.5).setDepth(205);
+        this._arbolBElements.push(escTxt);
     }
 }
